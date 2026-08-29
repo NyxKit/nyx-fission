@@ -36,6 +36,30 @@ describe('NyxEventEmitter', () => {
     expect(second).toHaveBeenCalledWith(payload)
   })
 
+  it('registers duplicate listeners only once', () => {
+    const emitter = new NyxEventEmitter<NyxEventMap>()
+    const listener = vi.fn()
+
+    emitter.on('ready', listener)
+    emitter.on('ready', listener)
+    emitter.emit('ready', undefined)
+
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('does not invoke a listener removed before its turn', () => {
+    const emitter = new NyxEventEmitter<NyxEventMap>()
+    const removed = vi.fn()
+    const removing = vi.fn(() => emitter.off('ready', removed))
+
+    emitter.on('ready', removing)
+    emitter.on('ready', removed)
+    emitter.emit('ready', undefined)
+
+    expect(removing).toHaveBeenCalledOnce()
+    expect(removed).not.toHaveBeenCalled()
+  })
+
   it('continues delivery when a listener throws', () => {
     const emitter = new NyxEventEmitter<NyxEventMap>()
     const failing = vi.fn(() => {

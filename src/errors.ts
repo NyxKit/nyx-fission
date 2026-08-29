@@ -1,3 +1,7 @@
+import type { NyxErrorStage } from './types'
+
+export type { NyxErrorStage } from './types'
+
 export type NyxErrorCode =
   | 'INVALID_CONFIG'
   | 'INVALID_TARGET'
@@ -9,21 +13,21 @@ export type NyxErrorCode =
   | 'RENDERER_UNAVAILABLE'
   | 'DESTROYED'
 
-export type NyxErrorStage =
-  | 'target'
-  | 'source'
-  | 'sampling'
-  | 'rendering'
-  | 'lifecycle'
-
 export class NyxError extends Error {
+  readonly code: NyxErrorCode
+  readonly stage: NyxErrorStage
+  readonly cause?: unknown
+
   constructor(
     message: string,
-    public readonly code: NyxErrorCode,
-    public readonly stage: NyxErrorStage,
-    public readonly cause?: unknown,
+    code: NyxErrorCode,
+    stage: NyxErrorStage,
+    cause?: unknown,
   ) {
     super(message)
     this.name = 'NyxError'
+    this.code = code
+    this.stage = stage
+    this.cause = cause
   }
 }

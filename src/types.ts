@@ -10,9 +10,16 @@ export interface NyxFissionConfig {
 
 export type NyxEventName = 'loading' | 'ready' | 'error' | 'destroy'
 
+export type NyxErrorStage =
+  | 'target'
+  | 'source'
+  | 'sampling'
+  | 'rendering'
+  | 'lifecycle'
+
 export interface NyxErrorEvent {
   error: Error
-  stage: 'target' | 'source' | 'sampling' | 'rendering' | 'lifecycle'
+  stage: NyxErrorStage
 }
 
 export type NyxEventMap = {

@@ -1,4 +1,4 @@
-type NyxEventListener<T> = (payload: T) => void
+type NyxEventListener<T> = (_value: T) => void
 
 export class NyxEventEmitter<T extends Record<string, unknown>> {
   private readonly listeners = new Map<
