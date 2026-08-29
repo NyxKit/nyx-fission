@@ -2,17 +2,30 @@
   "name": "nyx-fission",
   "version": "0.1.0",
   "type": "module",
+  "main": "./dist/nyx-fission.js",
+  "module": "./dist/nyx-fission.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/nyx-fission.js",
+      "default": "./dist/nyx-fission.js"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "run-p type-check build-only",
     "build-only": "vite build",
-    "type-check": "tsc --noEmit",
+    "type-check": "run-p type-check:src type-check:node",
+    "type-check:src": "tsc --noEmit",
+    "type-check:node": "tsc --noEmit -p tsconfig.node.json",
     "test:unit": "vitest run",
     "test": "vitest",
     "lint": "eslint .",
-    "dev": "vite --config vite.config.ts"
+    "dev": "vite --config vite.config.ts",
+    "prepack": "tsc -p tsconfig.types.json"
   },
   "peerDependencies": {
     "three": ">=0.171.0 <1"

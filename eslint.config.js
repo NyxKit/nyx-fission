@@ -13,5 +13,11 @@ export default [
         sourceType: 'module',
       },
     },
+    rules: {
+      curly: ['error', 'multi-line'],
+      eqeqeq: ['error', 'always'],
+      'no-undef': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
   },
 ]
