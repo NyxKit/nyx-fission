@@ -8,6 +8,7 @@ export class FrameSampler {
   private readonly context: CanvasRenderingContext2D
   private width = 0
   private height = 0
+  private disposed = false
 
   private readonly source: LoadedSource
 
@@ -26,6 +27,14 @@ export class FrameSampler {
   }
 
   sample(): ImageData {
+    if (this.disposed) {
+      throw new NyxError(
+        'Frame sampler has been disposed',
+        'DESTROYED',
+        'sampling',
+      )
+    }
+
     if (this.width !== this.source.width || this.height !== this.source.height) {
       this.width = this.source.width
       this.height = this.source.height
@@ -56,6 +65,10 @@ export class FrameSampler {
   }
 
   dispose(): void {
+    if (this.disposed) {
+      return
+    }
+    this.disposed = true
     this.canvas.width = 0
     this.canvas.height = 0
   }

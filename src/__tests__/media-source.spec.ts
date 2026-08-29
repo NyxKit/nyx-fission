@@ -4,11 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
 import { loadMediaSource } from '../media/source'
 
-function mediaElement(overrides: Record<string, unknown> = {}) {
+type MediaElementMethods = {
+  remove: ReturnType<typeof vi.fn>
+  emit: (_event: string) => void
+}
+
+function mediaElement<T extends Record<string, unknown>>(
+  overrides: T,
+): T & MediaElementMethods {
   const listeners = new Map<string, () => void>()
   const element = {
-    addEventListener: vi.fn((event: string, listener: () => void) => {
-      listeners.set(event, listener)
+    addEventListener: vi.fn((_event: string, listener: () => void) => {
+      listeners.set(_event, listener)
     }),
     removeEventListener: vi.fn(),
     remove: vi.fn(),
@@ -18,7 +25,7 @@ function mediaElement(overrides: Record<string, unknown> = {}) {
   }
   Object.defineProperties(element, Object.getOwnPropertyDescriptors(overrides))
 
-  return element
+  return element as unknown as T & MediaElementMethods
 }
 
 describe('loadMediaSource', () => {
@@ -103,6 +110,8 @@ describe('loadMediaSource', () => {
     const video = mediaElement({
       videoWidth: 800,
       videoHeight: 600,
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn(),
       set srcObject(_value: MediaStream | null) {
         queueMicrotask(() => video.emit('loadedmetadata'))
       },
@@ -113,6 +122,7 @@ describe('loadMediaSource', () => {
 
     const loaded = await loadMediaSource(undefined, 'usermedia')
     loaded.dispose()
+    loaded.dispose()
 
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
       video: true,
@@ -120,6 +130,7 @@ describe('loadMediaSource', () => {
     })
     expect(loaded).toMatchObject({ kind: 'usermedia', width: 800, height: 600 })
     expect(stop).toHaveBeenCalledOnce()
+    expect(video.pause).toHaveBeenCalledOnce()
     expect(video.remove).toHaveBeenCalledOnce()
   })
 
@@ -137,5 +148,106 @@ describe('loadMediaSource', () => {
       code: 'WEBCAM_PERMISSION_DENIED',
       stage: 'source',
     })
+  })
+
+  it('maps missing media APIs to a typed media load error', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: undefined,
+    })
+
+    const error = await loadMediaSource(undefined, 'usermedia').catch(
+      (value: unknown) => value,
+    )
+
+    expect(error).toBeInstanceOf(NyxError)
+    expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
+  })
+
+  it('maps non-permission webcam failures to MEDIA_LOAD_FAILED', async () => {
+    const cause = new DOMException('No camera', 'NotFoundError')
+    vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockRejectedValueOnce(cause)
+
+    const error = await loadMediaSource(undefined, 'usermedia').catch(
+      (value: unknown) => value,
+    )
+
+    expect(error).toMatchObject({
+      code: 'MEDIA_LOAD_FAILED',
+      stage: 'source',
+      cause,
+    })
+  })
+
+  it('starts webcam playback after metadata and cleans up when playback fails', async () => {
+    const stop = vi.fn()
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream
+    vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockResolvedValueOnce(stream)
+    const video = mediaElement({
+      videoWidth: 800,
+      videoHeight: 600,
+      pause: vi.fn(),
+      play: vi.fn().mockRejectedValue(new Error('autoplay blocked')),
+      set srcObject(_value: MediaStream | null) {
+        queueMicrotask(() => video.emit('loadedmetadata'))
+      },
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      video as unknown as HTMLElement,
+    )
+
+    const error = await loadMediaSource(undefined, 'usermedia').catch(
+      (value: unknown) => value,
+    )
+
+    expect(video.play).toHaveBeenCalledOnce()
+    expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
+    expect(stop).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
+  })
+
+  it('pauses and clears URL video resources idempotently', async () => {
+    const video = mediaElement({
+      videoWidth: 640,
+      videoHeight: 360,
+      pause: vi.fn(),
+      load: vi.fn(),
+      removeAttribute: vi.fn(),
+      set crossOrigin(_value: string) {},
+      set src(_value: string) {
+        queueMicrotask(() => video.emit('loadeddata'))
+      },
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      video as unknown as HTMLElement,
+    )
+
+    const loaded = await loadMediaSource('clip.mp4', 'video')
+    loaded.dispose()
+    loaded.dispose()
+
+    expect(video.pause).toHaveBeenCalledOnce()
+    expect(video.removeAttribute).toHaveBeenCalledWith('src')
+    expect(video.load).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
+  })
+
+  it('maps synchronous URL assignment failures and removes the element', async () => {
+    const image = mediaElement({
+      set crossOrigin(_value: string) {},
+      set src(_value: string) {
+        throw new Error('blocked assignment')
+      },
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      image as unknown as HTMLElement,
+    )
+
+    const error = await loadMediaSource('photo.jpg', 'image').catch(
+      (value: unknown) => value,
+    )
+
+    expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
+    expect(image.remove).toHaveBeenCalledOnce()
   })
 })
