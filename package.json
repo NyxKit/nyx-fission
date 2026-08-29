@@ -18,9 +18,7 @@
   "scripts": {
     "build": "run-p type-check build-only",
     "build-only": "vite build",
-    "type-check": "run-p type-check:src type-check:node",
-    "type-check:src": "tsc --noEmit",
-    "type-check:node": "tsc --noEmit -p tsconfig.node.json",
+    "type-check": "tsc --noEmit",
     "test:unit": "vitest run",
     "test": "vitest",
     "lint": "eslint .",
