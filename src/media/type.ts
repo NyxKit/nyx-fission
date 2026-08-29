@@ -33,3 +33,14 @@ export function inferMediaType(url: string): Exclude<MediaType, 'usermedia'> {
     'source',
   )
 }
+
+export function resolveMediaType(
+  type: MediaType | undefined,
+  sourceUrl: string,
+): MediaType {
+  if (type !== undefined) {
+    return type
+  }
+
+  return inferMediaType(sourceUrl)
+}
