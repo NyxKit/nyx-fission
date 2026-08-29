@@ -18,12 +18,13 @@
   "scripts": {
     "build": "run-p type-check build-only",
     "build-only": "vite build",
+    "declarations": "tsc -p tsconfig.types.json",
     "type-check": "tsc --noEmit",
     "test:unit": "vitest run",
     "test": "vitest",
     "lint": "eslint .",
     "dev": "vite --config vite.config.ts",
-    "prepack": "tsc -p tsconfig.types.json"
+    "prepack": "run-s build declarations"
   },
   "peerDependencies": {
     "three": ">=0.171.0 <1"
