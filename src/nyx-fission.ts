@@ -217,6 +217,8 @@ export class NyxFission {
     this.runtime = undefined
     this.sampler = undefined
     this.source = undefined
+    this.field = undefined
+    this.target = undefined
     this.rejectReady(error)
     if (!this.errorEmitted) {
       this.errorEmitted = true

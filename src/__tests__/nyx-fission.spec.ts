@@ -226,6 +226,8 @@ describe('NyxFission orchestration', () => {
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
     expect(errors).toEqual([{ error: failure, stage: 'source' }])
+    expect((particles as unknown as { target?: unknown }).target).toBeUndefined()
+    particles.destroy()
   })
 
   it('rejects later mounts with the original terminal failure', async () => {
@@ -306,7 +308,9 @@ describe('NyxFission orchestration', () => {
     const failure = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering')
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
+    const destroys = vi.fn()
     particles.on('error', (event) => errors.push(event))
+    particles.on('destroy', destroys)
 
     particles.mount(canvas())
     await particles.ready
@@ -315,6 +319,17 @@ describe('NyxFission orchestration', () => {
     expect(() => runtime.errorCallback?.(failure)).not.toThrow()
     expect(errors).toEqual([{ error: failure, stage: 'rendering' }])
     expect(runtime.dispose).toHaveBeenCalledOnce()
+    expect(await particles.ready.catch((error: unknown) => error)).toBeUndefined()
+    expect(() => particles.mount(canvas())).toThrowError(failure)
+    expect((particles as unknown as { target?: unknown; field?: unknown; source?: unknown; sampler?: unknown; runtime?: unknown })).toMatchObject({
+      target: undefined,
+      field: undefined,
+      source: undefined,
+      sampler: undefined,
+      runtime: undefined,
+    })
     particles.destroy()
+    particles.destroy()
+    expect(destroys).toHaveBeenCalledOnce()
   })
 })
