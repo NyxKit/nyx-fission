@@ -1,3 +1,5 @@
+/* global URL, document, HTMLCanvasElement, window, navigator, HTMLInputElement */
+
 import { createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxKit } from 'nyx-kit'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'

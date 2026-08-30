@@ -68,6 +68,7 @@ export class NyxFission {
         resolve()
       })
     })
+    void this.ready.catch(() => undefined)
 
     if (this.config.querySelector !== undefined) {
       void this.loadingReady.then(() => this.startAutomaticTargetResolution())

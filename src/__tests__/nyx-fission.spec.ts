@@ -1,4 +1,4 @@
-/* global Event, HTMLCanvasElement, ImageData, document, setTimeout, AbortSignal */
+/* global Event, HTMLCanvasElement, ImageData, document, setTimeout, AbortSignal, process */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
@@ -395,5 +395,23 @@ describe('NyxFission orchestration', () => {
 
     expect(source.dispose).toHaveBeenCalledOnce()
     expect(mocks.runtimeInstances).toHaveLength(0)
+  })
+
+  it('does not report an unhandled ready rejection when destroyed during loading', async () => {
+    let resolveSource!: (_source: unknown) => void
+    mocks.loadMediaSource.mockReturnValueOnce(new Promise((resolve) => { resolveSource = resolve }))
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    particles.mount(canvas())
+    await vi.waitFor(() => expect(mocks.loadMediaSource).toHaveBeenCalledOnce())
+    const unhandled: unknown[] = []
+    const handleUnhandled = (reason: unknown) => unhandled.push(reason)
+    process.on('unhandledRejection', handleUnhandled)
+
+    particles.destroy()
+    resolveSource({ dispose: vi.fn() })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    process.off('unhandledRejection', handleUnhandled)
+
+    expect(unhandled).toEqual([])
   })
 })
