@@ -6,6 +6,7 @@ export default defineConfig(({ command, mode }) => {
   if (command === 'serve' || mode === 'demo') {
     return {
       root: 'demo',
+      base: './',
       plugins: [vue(), glsl()],
       build: {
         outDir: '../dist-demo',

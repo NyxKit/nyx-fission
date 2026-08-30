@@ -122,8 +122,15 @@ const Demo = defineComponent({
 
     const copyExample = async () => {
       const example = `const particles = new NyxFission({ source: '${sourceUrl.value}' })\nconst target = document.querySelector<HTMLCanvasElement>('#particles-canvas')\nif (!target) throw new Error('Expected #particles-canvas to exist')\nparticles.mount(target)`
-      await navigator.clipboard?.writeText(example)
-      copyLabel.value = 'Copied'
+      try {
+        if (!navigator.clipboard) throw new Error('Clipboard access is unavailable in this browser.')
+        await navigator.clipboard.writeText(example)
+        copyLabel.value = 'Copied'
+      } catch (error) {
+        copyLabel.value = 'Copy failed'
+        const message = error instanceof Error ? error.message : 'Clipboard access was denied.'
+        setStatus('Needs attention', message, NyxTheme.Warning)
+      }
       window.setTimeout(() => { copyLabel.value = 'Copy example' }, 1600)
     }
 
