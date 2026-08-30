@@ -124,6 +124,7 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
 
   return new Promise((resolve, reject) => {
     let settled = false
+    let startingPlayback = false
     const cleanup = () => {
       element.removeEventListener('loadeddata', handleLoad)
       element.removeEventListener('error', handleError)
@@ -136,18 +137,29 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
       dispose()
       reject(mediaAbortError())
     }
-    const handleLoad = () => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resolve({
-        kind: 'video',
-        element,
-        width: element.videoWidth,
-        height: element.videoHeight,
-        getFrameSource: () => element,
-        dispose,
-      })
+    const handleLoad = async () => {
+      if (settled || startingPlayback) return
+      startingPlayback = true
+      try {
+        await element.play()
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve({
+          kind: 'video',
+          element,
+          width: element.videoWidth,
+          height: element.videoHeight,
+          getFrameSource: () => element,
+          dispose,
+        })
+      } catch (cause) {
+        if (settled) return
+        settled = true
+        cleanup()
+        dispose()
+        reject(mediaLoadError(cause))
+      }
     }
     const handleError = (cause: Event) => {
       if (settled) return
@@ -166,6 +178,9 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
     element.addEventListener('error', handleError)
     try {
       element.crossOrigin = 'anonymous'
+      element.muted = true
+      element.autoplay = true
+      element.playsInline = true
       element.preload = 'auto'
       element.src = url
     } catch (cause) {

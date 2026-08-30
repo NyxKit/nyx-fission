@@ -75,6 +75,7 @@ describe('loadMediaSource', () => {
       pause: vi.fn(),
       load: vi.fn(),
       removeAttribute: vi.fn(),
+      play: vi.fn().mockResolvedValue(undefined),
       set crossOrigin(_value: string) {},
       set src(_value: string) {
         queueMicrotask(() => video.emit('error'))
@@ -96,6 +97,7 @@ describe('loadMediaSource', () => {
     const readyVideo = mediaElement({
       videoWidth: 640,
       videoHeight: 360,
+      play: vi.fn().mockResolvedValue(undefined),
       set crossOrigin(_value: string) {},
       set src(_value: string) {
         queueMicrotask(() => readyVideo.emit('loadeddata'))
@@ -109,6 +111,48 @@ describe('loadMediaSource', () => {
       width: 640,
       height: 360,
     })
+  })
+
+  it('starts URL video playback after readiness and maps play rejection', async () => {
+    const assignments: string[] = []
+    let ready = false
+    const video = mediaElement({
+      videoWidth: 640,
+      videoHeight: 360,
+      pause: vi.fn(),
+      load: vi.fn(),
+      removeAttribute: vi.fn(),
+      play: vi.fn(() => {
+        expect(ready).toBe(true)
+        return Promise.reject(new Error('autoplay blocked'))
+      }),
+      set crossOrigin(value: string) {
+        assignments.push(`crossOrigin:${value}`)
+      },
+      set src(_value: string) {
+        assignments.push('src')
+        queueMicrotask(() => {
+          ready = true
+          video.emit('loadeddata')
+        })
+      },
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      video as unknown as HTMLElement,
+    )
+
+    const error = await loadMediaSource('clip.mp4', 'video').catch(
+      (value: unknown) => value,
+    )
+
+    expect(assignments).toEqual(['crossOrigin:anonymous', 'src'])
+    expect(video.play).toHaveBeenCalledOnce()
+    expect(error).toBeInstanceOf(NyxError)
+    expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
+    expect(video.pause).toHaveBeenCalledOnce()
+    expect(video.removeAttribute).toHaveBeenCalledWith('src')
+    expect(video.load).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
   })
 
   it('requests webcam video without audio and disposes the stream and element', async () => {
@@ -221,6 +265,7 @@ describe('loadMediaSource', () => {
       pause: vi.fn(),
       load: vi.fn(),
       removeAttribute: vi.fn(),
+      play: vi.fn().mockResolvedValue(undefined),
       set crossOrigin(_value: string) {},
       set src(_value: string) {
         queueMicrotask(() => video.emit('loadeddata'))
