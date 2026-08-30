@@ -1,6 +1,5 @@
 uniform float pointSize;
 
-attribute vec3 position;
 attribute vec3 color;
 
 varying vec3 particleColor;

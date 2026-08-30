@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
 import { ThreeRuntime } from '../runtime'
 import type { ParticleField } from '../particles'
+import vertexShader from '../shaders/particles.vert.glsl?raw'
 
 const three = vi.hoisted(() => {
   class Scene {
@@ -17,14 +18,18 @@ const three = vi.hoisted(() => {
     right: number
     top: number
     bottom: number
+    near: number
+    far: number
     position = { z: 0 }
     updateProjectionMatrix = vi.fn()
 
-    constructor(left: number, right: number, top: number, bottom: number) {
+    constructor(left: number, right: number, top: number, bottom: number, near: number, far: number) {
       this.left = left
       this.right = right
       this.top = top
       this.bottom = bottom
+      this.near = near
+      this.far = far
     }
   }
 
@@ -113,7 +118,11 @@ describe('ThreeRuntime', () => {
     const runtime = new ThreeRuntime(target, field())
 
     expect(three.Scene).toHaveBeenCalledTimes(1)
-    expect(three.OrthographicCamera).toHaveBeenCalledWith(-640 / 360 / 2, 640 / 360 / 2, 0.5, -0.5, 0.1, 100)
+    expect(three.OrthographicCamera).toHaveBeenCalledWith(-640 / 360 / 2, 640 / 360 / 2, 0.5, -0.5, 0.1, 3)
+    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    expect(camera.position.z).toBe(2)
+    expect(camera.near).toBeLessThan(camera.position.z - 1)
+    expect(camera.far).toBeGreaterThan(camera.position.z)
     expect(three.BufferGeometry).toHaveBeenCalledTimes(1)
     expect(three.Points).toHaveBeenCalledTimes(1)
     expect(three.ShaderMaterial).toHaveBeenCalledTimes(1)
@@ -177,5 +186,13 @@ describe('ThreeRuntime', () => {
     } catch (error) {
       expect(error).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering' })
     }
+  })
+
+  it('uses Three built-ins and required particle shader behavior', () => {
+    expect(vertexShader).not.toMatch(/(?:attribute|in)\s+vec3\s+position\s*;/)
+    expect(vertexShader).toMatch(/(?:attribute|in)\s+vec3\s+color\s*;/)
+    expect(vertexShader).toContain('gl_PointSize = pointSize')
+    expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0)')
+    expect(vertexShader).toContain('particleColor = color')
   })
 })

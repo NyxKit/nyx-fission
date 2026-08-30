@@ -15,6 +15,10 @@ import vertexShader from './shaders/particles.vert.glsl?raw'
 import { NyxError } from './errors'
 import type { ParticleField } from './particles'
 
+const CAMERA_Z = 2
+const CAMERA_NEAR = 0.1
+const CAMERA_FAR = 3
+
 export type FrameCallback = (_time: number) => void
 
 function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
@@ -39,8 +43,8 @@ export class ThreeRuntime {
   constructor(private readonly canvas: HTMLCanvasElement, initialField: ParticleField) {
     const size = canvasSize(canvas)
     this.scene = new Scene()
-    this.camera = new OrthographicCamera(-size.width / size.height / 2, size.width / size.height / 2, 0.5, -0.5, 0.1, 100)
-    this.camera.position.z = 1
+    this.camera = new OrthographicCamera(-size.width / size.height / 2, size.width / size.height / 2, 0.5, -0.5, CAMERA_NEAR, CAMERA_FAR)
+    this.camera.position.z = CAMERA_Z
     this.geometry = new BufferGeometry()
     this.material = new ShaderMaterial({
       vertexShader,
