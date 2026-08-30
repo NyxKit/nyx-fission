@@ -120,6 +120,7 @@ function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
 
 function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
   const element = document.createElement('video')
+  const dispose = disposeUrlVideo(element)
 
   return new Promise((resolve, reject) => {
     let settled = false
@@ -132,7 +133,7 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
       if (settled) return
       settled = true
       cleanup()
-      disposeUrlVideo(element)()
+      dispose()
       reject(mediaAbortError())
     }
     const handleLoad = () => {
@@ -145,14 +146,14 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
         width: element.videoWidth,
         height: element.videoHeight,
         getFrameSource: () => element,
-        dispose: disposeUrlVideo(element),
+        dispose,
       })
     }
     const handleError = (cause: Event) => {
       if (settled) return
       settled = true
       cleanup()
-      removeElement(element)
+      dispose()
       reject(mediaLoadError(cause))
     }
 

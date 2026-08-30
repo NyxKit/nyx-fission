@@ -72,6 +72,9 @@ describe('loadMediaSource', () => {
     const video = mediaElement({
       videoWidth: 640,
       videoHeight: 360,
+      pause: vi.fn(),
+      load: vi.fn(),
+      removeAttribute: vi.fn(),
       set crossOrigin(_value: string) {},
       set src(_value: string) {
         queueMicrotask(() => video.emit('error'))
@@ -85,6 +88,10 @@ describe('loadMediaSource', () => {
       code: 'MEDIA_LOAD_FAILED',
       stage: 'source',
     })
+    expect(video.pause).toHaveBeenCalledOnce()
+    expect(video.removeAttribute).toHaveBeenCalledWith('src')
+    expect(video.load).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
 
     const readyVideo = mediaElement({
       videoWidth: 640,
