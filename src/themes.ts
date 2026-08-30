@@ -4,16 +4,9 @@ import type { ThemeName } from './types'
 
 export type Color = readonly [number, number, number]
 
-const grayscale: readonly Color[] = [
-  [0, 0, 0],
-  [0.25, 0.25, 0.25],
-  [0.5, 0.5, 0.5],
-  [0.75, 0.75, 0.75],
-  [1, 1, 1],
-]
-
-const discodip = hexPalette(['#ff006e', '#8338ec', '#3a86ff', '#06d6a0', '#ffbe0b'])
-const pastel = hexPalette(['#ea6c92', '#f0a573', '#fff6a3', '#abeda1', '#9eb8ff'])
+const grayscale = hexPalette(['#555555'])
+const discodip = hexPalette(['#f0932b', '#eb4d4b', '#6ab04c', '#22a6b3', '#be2edd', '#4834d4', '#130f40'])
+const pastel = hexPalette(['#A8D8EA', '#A8D8EA', '#A8D8EA', '#AA96DA', '#AA96DA', '#FCBAD3', '#FFFFD2'])
 const nyxFallback = hexPalette(['#9f50f0', '#0f4c75', '#1faa59', '#e58e26', '#d72638', '#3b82f6'])
 const semanticNames = ['primary', 'secondary', 'success', 'warning', 'danger', 'info'] as const
 

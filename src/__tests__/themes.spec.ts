@@ -8,17 +8,35 @@ describe('resolveTheme', () => {
   it.each(['grayscale', 'discodip', 'pastel', 'nyx'] as const)('resolves %s to normalized RGB triples', (name) => {
     const theme = resolveTheme(name)
 
-    expect(theme.length).toBeGreaterThan(1)
+    expect(theme.length).toBeGreaterThan(0)
     expect(theme.every((color) => color.length === 3 && color.every((value) => value >= 0 && value <= 1))).toBe(true)
   })
 
-  it('returns a grayscale palette with equal channels', () => {
-    expect(resolveTheme('grayscale')).toEqual([
-      [0, 0, 0],
-      [0.25, 0.25, 0.25],
-      [0.5, 0.5, 0.5],
-      [0.75, 0.75, 0.75],
-      [1, 1, 1],
+  it('returns the exact grayscale palette', () => {
+    expect(resolveTheme('grayscale')).toEqual([[85 / 255, 85 / 255, 85 / 255]])
+  })
+
+  it('returns the exact discodip palette', () => {
+    expect(resolveTheme('discodip')).toEqual([
+      [240 / 255, 147 / 255, 43 / 255],
+      [235 / 255, 77 / 255, 75 / 255],
+      [106 / 255, 176 / 255, 76 / 255],
+      [34 / 255, 166 / 255, 179 / 255],
+      [190 / 255, 46 / 255, 221 / 255],
+      [72 / 255, 52 / 255, 212 / 255],
+      [19 / 255, 15 / 255, 64 / 255],
+    ])
+  })
+
+  it('returns the exact pastel palette, including repeated colors', () => {
+    expect(resolveTheme('pastel')).toEqual([
+      [168 / 255, 216 / 255, 234 / 255],
+      [168 / 255, 216 / 255, 234 / 255],
+      [168 / 255, 216 / 255, 234 / 255],
+      [170 / 255, 150 / 255, 218 / 255],
+      [170 / 255, 150 / 255, 218 / 255],
+      [252 / 255, 186 / 255, 211 / 255],
+      [255 / 255, 255 / 255, 210 / 255],
     ])
   })
 
