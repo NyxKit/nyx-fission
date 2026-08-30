@@ -68,6 +68,29 @@ describe('loadMediaSource', () => {
     expect(loaded.getFrameSource()).toBe(image)
   })
 
+  it('resets a successfully loaded image source before idempotent removal', async () => {
+    const sources: string[] = []
+    const image = mediaElement({
+      naturalWidth: 320,
+      naturalHeight: 180,
+      set crossOrigin(_value: string) {},
+      set src(value: string) {
+        sources.push(value)
+        queueMicrotask(() => image.emit('load'))
+      },
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      image as unknown as HTMLElement,
+    )
+
+    const loaded = await loadMediaSource('./photo.jpg', 'image')
+    loaded.dispose()
+    loaded.dispose()
+
+    expect(sources).toEqual(['http://localhost:3000/photo.jpg', ''])
+    expect(image.remove).toHaveBeenCalledOnce()
+  })
+
   it('waits for video loadeddata and maps load errors', async () => {
     const video = mediaElement({
       videoWidth: 640,

@@ -46,6 +46,7 @@ function disposeUrlImage(element: HTMLImageElement): () => void {
   return () => {
     if (!disposed) {
       disposed = true
+      element.src = ''
       removeElement(element)
     }
   }
