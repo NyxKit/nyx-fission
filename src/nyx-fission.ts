@@ -41,6 +41,7 @@ export class NyxFission {
   private frameHeight = 0
   private errorEmitted = false
   private destroyEmitted = false
+  private failureError: NyxError | undefined
 
   constructor(config: NyxFissionConfig = {}) {
     this.config = { ...config }
@@ -68,6 +69,7 @@ export class NyxFission {
 
   mount(canvas: HTMLCanvasElement): void {
     if (this.state === 'destroyed') throw lifecycleError('NyxFission has been destroyed')
+    if (this.state === 'failed') throw this.failureError
     if (this.target !== undefined) {
       throw new NyxError('NyxFission can only be mounted once', 'INVALID_TARGET', 'lifecycle')
     }
@@ -108,7 +110,7 @@ export class NyxFission {
   }
 
   private initialise(canvas: HTMLCanvasElement): void {
-    if (this.state === 'destroyed') return
+    if (this.state === 'destroyed' || this.state === 'failed') return
     if (this.target !== undefined) return
     this.target = canvas
     this.state = 'loading'
@@ -175,6 +177,7 @@ export class NyxFission {
   private fail(error: NyxError): void {
     if (this.state === 'destroyed' || this.state === 'failed') return
     this.state = 'failed'
+    this.failureError = error
     this.targetResolution?.cancel()
     this.targetResolution = undefined
     this.runtime?.dispose()

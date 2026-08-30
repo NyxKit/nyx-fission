@@ -136,6 +136,24 @@ describe('NyxFission orchestration', () => {
     expect(errors).toEqual([{ error: failure, stage: 'source' }])
   })
 
+  it('rejects later mounts with the original terminal failure', async () => {
+    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', 'source')
+    mocks.loadMediaSource.mockRejectedValueOnce(failure)
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    const loading = vi.fn()
+    const ready = vi.fn()
+    particles.on('loading', loading)
+    particles.on('ready', ready)
+
+    particles.mount(canvas())
+    await expect(particles.ready).rejects.toBe(failure)
+
+    expect(() => particles.mount(canvas())).toThrowError(failure)
+    expect(loading).toHaveBeenCalledOnce()
+    expect(ready).not.toHaveBeenCalled()
+    particles.destroy()
+  })
+
   it('infers image type and honors an explicit type override', async () => {
     const inferred = new NyxFission({ source: './portrait.jpg' })
     inferred.mount(canvas())
