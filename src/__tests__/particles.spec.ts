@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { NyxError } from '../errors'
 import { createParticleField, updateParticleField } from '../particles'
 import type { Color } from '../themes'
 
@@ -55,5 +56,42 @@ describe('particle fields', () => {
       0, 0, 0,
       0, 1, 0,
     ])
+  })
+
+  it('rejects frame dimensions that no longer match the field', () => {
+    const field = createParticleField(imageData(6, 4, new Array(6 * 4 * 4).fill(0)), theme)
+    const mismatched = imageData(3, 4, new Array(3 * 4 * 4).fill(0))
+
+    expect(() => updateParticleField(field, mismatched)).toThrowError(NyxError)
+    try {
+      updateParticleField(field, mismatched)
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'INVALID_CONFIG', stage: 'sampling' })
+    }
+  })
+
+  it('rejects frames whose pixel buffer is too short', () => {
+    const field = createParticleField(imageData(6, 4, new Array(6 * 4 * 4).fill(0)), theme)
+
+    expect(() => updateParticleField(field, imageData(6, 4, new Array(6 * 4 * 4 - 1).fill(0)))).toThrowError(NyxError)
+  })
+
+  it('keeps a private copy of the supplied palette', () => {
+    const palette: [number, number, number][] = [[1, 0, 0], [0, 1, 0]]
+    const field = createParticleField(imageData(3, 1, [0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]), palette)
+
+    palette[0][0] = 0
+    palette[0][2] = 1
+    palette.push([0, 0, 1])
+    updateParticleField(field, imageData(3, 1, [0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]))
+
+    expect(Array.from(field.colors)).toEqual([1, 0, 0])
+  })
+
+  it('rejects an empty or invalid palette at creation', () => {
+    const source = imageData(3, 1, [0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255])
+
+    expect(() => createParticleField(source, [])).toThrowError(NyxError)
+    expect(() => createParticleField(source, [[1, 0, Number.NaN]])).toThrowError(NyxError)
   })
 })

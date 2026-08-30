@@ -1,8 +1,24 @@
 /* global ImageData */
 
 import type { Color } from './themes'
+import { NyxError } from './errors'
 
 const SAMPLE_STEP = 3
+
+function validateTheme(theme: readonly Color[]): void {
+  if (!theme || theme.length === 0 || theme.some((color) => !Array.isArray(color) || color.length !== 3 || color.some((channel) => !Number.isFinite(channel) || channel < 0 || channel > 1))) {
+    throw new NyxError('Particle theme must contain at least one valid RGB color', 'INVALID_CONFIG', 'sampling')
+  }
+}
+
+function validateImageData(imageData: ImageData, width?: number, height?: number): void {
+  if (width !== undefined && (imageData.width !== width || imageData.height !== height)) {
+    throw new NyxError('Particle frame dimensions changed; rebuild the particle field', 'INVALID_CONFIG', 'sampling')
+  }
+  if (imageData.width <= 0 || imageData.height <= 0 || imageData.data.length < imageData.width * imageData.height * 4) {
+    throw new NyxError('Particle frame does not contain enough pixel data', 'INVALID_CONFIG', 'sampling')
+  }
+}
 
 export class ParticleField {
   readonly positions: Float32Array
@@ -13,9 +29,11 @@ export class ParticleField {
   private readonly theme: readonly Color[]
 
   constructor(imageData: ImageData, theme: readonly Color[]) {
+    validateTheme(theme)
+    validateImageData(imageData)
     this.width = imageData.width
     this.height = imageData.height
-    this.theme = theme
+    this.theme = theme.map((color) => [color[0], color[1], color[2]])
     this.pixelIndices = []
     const positions: number[] = []
     for (let y = 0; y < this.height; y += SAMPLE_STEP) {
@@ -30,11 +48,12 @@ export class ParticleField {
   }
 
   update(imageData: ImageData): void {
+    validateTheme(this.theme)
+    validateImageData(imageData, this.width, this.height)
     this.pixelIndices.forEach((pixelIndex, index) => {
-      const sourceIndex = Math.min(pixelIndex, imageData.data.length - 4)
-      const red = imageData.data[sourceIndex]
-      const green = imageData.data[sourceIndex + 1]
-      const blue = imageData.data[sourceIndex + 2]
+      const red = imageData.data[pixelIndex]
+      const green = imageData.data[pixelIndex + 1]
+      const blue = imageData.data[pixelIndex + 2]
       const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
       this.positions[index * 3 + 2] = luminance
       const color = this.theme[Math.min(this.theme.length - 1, Math.floor(luminance * this.theme.length))]
