@@ -226,6 +226,8 @@ describe('ThreeRuntime', () => {
 
   it('disposes all owned resources and the pending frame', () => {
     const runtime = new ThreeRuntime(canvas(), field())
+    const scene = vi.mocked(three.Scene).mock.results[0].value
+    const points = vi.mocked(three.Points).mock.results[0].value
     runtime.start(vi.fn())
 
     runtime.dispose()
@@ -237,6 +239,13 @@ describe('ThreeRuntime', () => {
     expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect((runtime as unknown as { frameCallback?: unknown }).frameCallback).toBeUndefined()
+    expect(scene.remove).toHaveBeenCalledWith(points)
+    expect(runtime).toMatchObject({
+      positionAttribute: undefined,
+      colorAttribute: undefined,
+      points: undefined,
+      geometry: undefined,
+    })
   })
 
   it('ignores queued resize callbacks after disposal', () => {
@@ -267,7 +276,7 @@ describe('ThreeRuntime', () => {
       thrown = error
     }
 
-    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause })
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause, message: 'Renderer resize failed' })
     expect(cancelFrame).toHaveBeenCalledWith(42)
     expect(observer.disconnect).toHaveBeenCalledOnce()
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
@@ -376,7 +385,7 @@ describe('ThreeRuntime', () => {
       thrown = error
     }
 
-    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause })
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause, message: 'Initial renderer resize failed' })
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()

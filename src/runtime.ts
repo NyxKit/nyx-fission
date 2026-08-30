@@ -31,9 +31,9 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
 export class ThreeRuntime {
   private readonly scene: Scene
   private readonly camera: OrthographicCamera
-  private geometry: BufferGeometry
+  private geometry: BufferGeometry | undefined
   private readonly material: ShaderMaterial
-  private readonly points: Points
+  private points: Points | undefined
   private readonly renderer: WebGLRenderer
   private readonly observer: ResizeObserver
   private positionAttribute: Float32BufferAttribute | undefined
@@ -62,7 +62,7 @@ export class ThreeRuntime {
     try {
       this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true })
     } catch (cause) {
-      this.geometry.dispose()
+      this.geometry?.dispose()
       this.material.dispose()
       throw new NyxError('WebGL renderer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
@@ -70,6 +70,13 @@ export class ThreeRuntime {
     let observer: ResizeObserver | undefined
     try {
       this.resize(size.width, size.height)
+    } catch (cause) {
+      this.geometry?.dispose()
+      this.material.dispose()
+      this.renderer.dispose()
+      throw new NyxError('Initial renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+    }
+    try {
       observer = new ResizeObserver((entries) => {
         if (this.disposed) return
         const entry = entries[0]
@@ -87,15 +94,20 @@ export class ThreeRuntime {
       this.observer = observer
     } catch (cause) {
       observer?.disconnect()
-      this.geometry.dispose()
+      this.geometry?.dispose()
       this.material.dispose()
       this.renderer.dispose()
-      throw new NyxError('Resize observer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+      throw new NyxError('Resize observer setup failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
   }
 
   setField(field: ParticleField): void {
     if (this.disposed) {
+      throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+    }
+    const geometry = this.geometry
+    const points = this.points
+    if (!geometry || !points) {
       throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
     }
     if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length) {
@@ -108,13 +120,15 @@ export class ThreeRuntime {
 
     const positionAttribute = new Float32BufferAttribute(field.positions, 3)
     const colorAttribute = new Float32BufferAttribute(field.colors, 3)
+    let targetGeometry = geometry
     if (this.positionAttribute || this.colorAttribute) {
-      this.geometry.dispose()
-      this.geometry = new BufferGeometry()
-      this.points.geometry = this.geometry
+      geometry.dispose()
+      targetGeometry = new BufferGeometry()
+      this.geometry = targetGeometry
+      points.geometry = targetGeometry
     }
-    this.geometry.setAttribute('position', positionAttribute)
-    this.geometry.setAttribute('color', colorAttribute)
+    targetGeometry.setAttribute('position', positionAttribute)
+    targetGeometry.setAttribute('color', colorAttribute)
     this.positionAttribute = positionAttribute
     this.colorAttribute = colorAttribute
   }
@@ -147,9 +161,14 @@ export class ThreeRuntime {
     if (this.frameId !== undefined) cancelAnimationFrame(this.frameId)
     this.frameId = undefined
     this.observer.disconnect()
-    this.geometry.dispose()
+    if (this.points) this.scene.remove(this.points)
+    this.geometry?.dispose()
     this.material.dispose()
     this.renderer.dispose()
+    this.positionAttribute = undefined
+    this.colorAttribute = undefined
+    this.points = undefined
+    this.geometry = undefined
   }
 
   private resize(width: number, height: number): void {
