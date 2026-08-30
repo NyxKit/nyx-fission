@@ -50,9 +50,6 @@ importers:
       vue:
         specifier: ^3.5.13
         version: 3.5.42(typescript@5.6.3)
-      vue-router:
-        specifier: ^5.0.4
-        version: 5.3.0(@vue/compiler-sfc@3.5.42)(esbuild@0.25.12)(rollup@4.63.1)(vite@6.4.3(@types/node@22.20.1))(vue@3.5.42(typescript@5.6.3))
 
 packages:
 
@@ -2282,13 +2279,16 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
       '@jridgewell/trace-mapping': 0.3.31
+    optional: true
 
   '@jridgewell/remapping@2.3.5':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
+    optional: true
 
-  '@jridgewell/resolve-uri@3.1.2': {}
+  '@jridgewell/resolve-uri@3.1.2':
+    optional: true
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
@@ -2296,6 +2296,7 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+    optional: true
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
@@ -2696,6 +2697,7 @@ snapshots:
       unplugin-utils: 0.3.2
     optionalDependencies:
       vue: 3.5.42(typescript@5.6.3)
+    optional: true
 
   '@vue/compiler-core@3.5.42':
     dependencies:
@@ -2730,6 +2732,7 @@ snapshots:
   '@vue/devtools-api@8.2.1':
     dependencies:
       '@vue/devtools-kit': 8.2.1
+    optional: true
 
   '@vue/devtools-kit@8.2.1':
     dependencies:
@@ -2737,8 +2740,10 @@ snapshots:
       birpc: 2.9.0
       hookable: 5.5.3
       perfect-debounce: 2.1.0
+    optional: true
 
-  '@vue/devtools-shared@8.2.1': {}
+  '@vue/devtools-shared@8.2.1':
+    optional: true
 
   '@vue/reactivity@3.5.42':
     dependencies:
@@ -2795,12 +2800,14 @@ snapshots:
     dependencies:
       '@babel/parser': 7.29.8
       pathe: 2.0.3
+    optional: true
 
   ast-walker-scope@0.9.0:
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8
       ast-kit: 2.2.0
+    optional: true
 
   asynckit@0.4.0: {}
 
@@ -2808,7 +2815,8 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  birpc@2.9.0: {}
+  birpc@2.9.0:
+    optional: true
 
   brace-expansion@1.1.18:
     dependencies:
@@ -2850,6 +2858,7 @@ snapshots:
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.1.1
+    optional: true
 
   color-convert@2.0.1:
     dependencies:
@@ -2863,9 +2872,11 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  confbox@0.1.8: {}
+  confbox@0.1.8:
+    optional: true
 
-  confbox@0.2.4: {}
+  confbox@0.2.4:
+    optional: true
 
   cross-spawn@7.0.6:
     dependencies:
@@ -3059,7 +3070,8 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  exsolve@1.1.1: {}
+  exsolve@1.1.1:
+    optional: true
 
   fast-deep-equal@3.1.3: {}
 
@@ -3140,7 +3152,8 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  hookable@5.5.3: {}
+  hookable@5.5.3:
+    optional: true
 
   html-encoding-sniffer@4.0.0:
     dependencies:
@@ -3245,6 +3258,7 @@ snapshots:
       mlly: 1.8.2
       pkg-types: 2.3.1
       quansync: 0.2.11
+    optional: true
 
   locate-path@6.0.0:
     dependencies:
@@ -3263,6 +3277,7 @@ snapshots:
   magic-string-ast@1.0.3:
     dependencies:
       magic-string: 0.30.21
+    optional: true
 
   magic-string@0.30.21:
     dependencies:
@@ -3311,16 +3326,19 @@ snapshots:
       pathe: 2.0.3
       pkg-types: 1.3.1
       ufo: 1.6.4
+    optional: true
 
   ms@2.1.3: {}
 
-  muggle-string@0.4.1: {}
+  muggle-string@0.4.1:
+    optional: true
 
   nanoid@3.3.18: {}
 
   natural-compare@1.4.0: {}
 
-  nostics@1.2.0: {}
+  nostics@1.2.0:
+    optional: true
 
   npm-normalize-package-bin@4.0.0: {}
 
@@ -3392,11 +3410,13 @@ snapshots:
 
   pathe@1.1.2: {}
 
-  pathe@2.0.3: {}
+  pathe@2.0.3:
+    optional: true
 
   pathval@2.0.1: {}
 
-  perfect-debounce@2.1.0: {}
+  perfect-debounce@2.1.0:
+    optional: true
 
   picocolors@1.1.1: {}
 
@@ -3409,12 +3429,14 @@ snapshots:
       confbox: 0.1.8
       mlly: 1.8.2
       pathe: 2.0.3
+    optional: true
 
   pkg-types@2.3.1:
     dependencies:
       confbox: 0.2.4
       exsolve: 1.1.1
       pathe: 2.0.3
+    optional: true
 
   postcss@8.5.26:
     dependencies:
@@ -3508,14 +3530,16 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  quansync@0.2.11: {}
+  quansync@0.2.11:
+    optional: true
 
   read-package-json-fast@4.0.0:
     dependencies:
       json-parse-even-better-errors: 4.0.0
       npm-normalize-package-bin: 4.0.0
 
-  readdirp@5.1.1: {}
+  readdirp@5.1.1:
+    optional: true
 
   resolve-from@4.0.0: {}
 
@@ -3563,7 +3587,8 @@ snapshots:
     dependencies:
       xmlchars: 2.2.0
 
-  scule@1.3.0: {}
+  scule@1.3.0:
+    optional: true
 
   semver@7.8.5: {}
 
@@ -3642,7 +3667,8 @@ snapshots:
 
   uc.micro@2.1.0: {}
 
-  ufo@1.6.4: {}
+  ufo@1.6.4:
+    optional: true
 
   undici-types@6.21.0: {}
 
@@ -3650,6 +3676,7 @@ snapshots:
     dependencies:
       pathe: 2.0.3
       picomatch: 4.0.7
+    optional: true
 
   unplugin@3.3.0(esbuild@0.25.12)(rollup@4.63.1)(vite@6.4.3(@types/node@22.20.1)):
     dependencies:
@@ -3660,6 +3687,7 @@ snapshots:
       esbuild: 0.25.12
       rollup: 4.63.1
       vite: 6.4.3(@types/node@22.20.1)
+    optional: true
 
   uri-js@4.4.1:
     dependencies:
@@ -3777,6 +3805,7 @@ snapshots:
       - rollup
       - unloader
       - webpack
+    optional: true
 
   vue@3.5.42(typescript@5.6.3):
     dependencies:
@@ -3796,7 +3825,8 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webpack-virtual-modules@0.6.2: {}
+  webpack-virtual-modules@0.6.2:
+    optional: true
 
   whatwg-encoding@3.1.1:
     dependencies:

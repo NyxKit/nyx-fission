@@ -42,7 +42,6 @@
     "three": "^0.171.0",
     "typescript": "~5.6.3",
     "vue": "^3.5.13",
-    "vue-router": "^5.0.4",
     "vite": "^6.0.5",
     "vite-plugin-glsl": "^1.3.1",
     "vitest": "^2.1.8"
