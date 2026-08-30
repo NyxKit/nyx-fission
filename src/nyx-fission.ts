@@ -1,0 +1,192 @@
+/* global HTMLCanvasElement */
+
+import { NyxEventEmitter } from './events'
+import { NyxError } from './errors'
+import { FrameSampler } from './frame-sampler'
+import { loadMediaSource, type LoadedSource } from './media/source'
+import { resolveMediaType } from './media/type'
+import { resolveMediaUrl } from './media/url'
+import { createParticleField, updateParticleField, type ParticleField } from './particles'
+import { ThreeRuntime } from './runtime'
+import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
+import { resolveTheme } from './themes'
+import type { NyxEventMap, NyxFissionConfig } from './types'
+
+type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
+
+function lifecycleError(message: string, cause?: unknown): NyxError {
+  return new NyxError(message, 'DESTROYED', 'lifecycle', cause)
+}
+
+function asNyxError(error: unknown, stage: 'target' | 'source' | 'sampling' | 'rendering'): NyxError {
+  if (error instanceof NyxError) return error
+  return new NyxError('NyxFission could not initialize', 'MEDIA_LOAD_FAILED', stage, error)
+}
+
+export class NyxFission {
+  readonly ready: Promise<void>
+
+  private readonly config: NyxFissionConfig
+  private readonly events = new NyxEventEmitter<NyxEventMap>()
+  private readonly resolveReady: () => void
+  private readonly rejectReady: (_error: NyxError) => void
+  private state: State = 'created'
+  private target: HTMLCanvasElement | undefined
+  private targetResolution: TargetResolution | undefined
+  private source: LoadedSource | undefined
+  private sampler: FrameSampler | undefined
+  private field: ParticleField | undefined
+  private runtime: ThreeRuntime | undefined
+  private frameWidth = 0
+  private frameHeight = 0
+  private errorEmitted = false
+  private destroyEmitted = false
+
+  constructor(config: NyxFissionConfig = {}) {
+    this.config = { ...config }
+    if (this.config.type !== 'usermedia' && !this.config.source) {
+      throw new NyxError('A media source is required', 'INVALID_CONFIG', 'source')
+    }
+
+    let resolveReady!: () => void
+    let rejectReady!: (_error: NyxError) => void
+    this.ready = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve
+      rejectReady = reject
+    })
+    this.resolveReady = resolveReady
+    this.rejectReady = rejectReady
+
+    if (this.config.querySelector !== undefined) {
+      this.targetResolution = resolveCanvas(this.config)
+      this.targetResolution.promise.then(
+        (canvas) => this.initialise(canvas),
+        (error: unknown) => this.fail(asNyxError(error, 'target')),
+      )
+    }
+  }
+
+  mount(canvas: HTMLCanvasElement): void {
+    if (this.state === 'destroyed') throw lifecycleError('NyxFission has been destroyed')
+    if (this.target !== undefined) {
+      throw new NyxError('NyxFission can only be mounted once', 'INVALID_TARGET', 'lifecycle')
+    }
+
+    const target = validateCanvas(canvas)
+    this.targetResolution?.cancel()
+    this.targetResolution = undefined
+    this.initialise(target)
+  }
+
+  on<K extends keyof NyxEventMap>(event: K, listener: (_value: NyxEventMap[K]) => void): void {
+    this.events.on(event, listener)
+  }
+
+  off<K extends keyof NyxEventMap>(event: K, listener: (_value: NyxEventMap[K]) => void): void {
+    this.events.off(event, listener)
+  }
+
+  destroy(): void {
+    if (this.state === 'destroyed') return
+    this.state = 'destroyed'
+    this.targetResolution?.cancel()
+    this.targetResolution = undefined
+    this.runtime?.dispose()
+    this.sampler?.dispose()
+    this.source?.dispose()
+    this.runtime = undefined
+    this.sampler = undefined
+    this.source = undefined
+    this.field = undefined
+    this.target = undefined
+    this.rejectReady(lifecycleError('NyxFission has been destroyed'))
+    if (!this.destroyEmitted) {
+      this.destroyEmitted = true
+      this.events.emit('destroy', undefined)
+    }
+    this.events.clear()
+  }
+
+  private initialise(canvas: HTMLCanvasElement): void {
+    if (this.state === 'destroyed') return
+    if (this.target !== undefined) return
+    this.target = canvas
+    this.state = 'loading'
+    this.events.emit('loading', undefined)
+    void this.load(canvas)
+  }
+
+  private async load(canvas: HTMLCanvasElement): Promise<void> {
+    try {
+      const sourceUrl = this.config.source ? resolveMediaUrl(this.config.source) : ''
+      const type = resolveMediaType(this.config.type, sourceUrl)
+      const source = await loadMediaSource(this.config.source, type)
+      if (this.state === 'destroyed') {
+        source.dispose()
+        return
+      }
+      this.source = source
+      this.sampler = new FrameSampler(source)
+      this.renderFirstFrame(canvas)
+      this.runtime?.start(() => this.renderFrame())
+      this.state = 'ready'
+      this.resolveReady()
+      this.events.emit('ready', undefined)
+    } catch (error) {
+      this.fail(asNyxError(error, this.stageFor(error)))
+    }
+  }
+
+  private renderFirstFrame(canvas: HTMLCanvasElement): void {
+    const sampler = this.sampler
+    if (!sampler) throw new NyxError('Frame sampler is unavailable', 'MEDIA_LOAD_FAILED', 'sampling')
+    const frame = sampler.sample()
+    this.frameWidth = frame.width
+    this.frameHeight = frame.height
+    this.field = createParticleField(frame, resolveTheme(this.config.theme ?? 'nyx'))
+    this.runtime = new ThreeRuntime(canvas, this.field)
+  }
+
+  private renderFrame(): void {
+    try {
+      const sampler = this.sampler
+      const runtime = this.runtime
+      if (!sampler || !runtime || !this.field) return
+      const frame = sampler.sample()
+      if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
+        this.frameWidth = frame.width
+        this.frameHeight = frame.height
+        this.field = createParticleField(frame, resolveTheme(this.config.theme ?? 'nyx'))
+        runtime.setField(this.field)
+      } else {
+        updateParticleField(this.field, frame)
+        runtime.setField(this.field)
+      }
+    } catch (error) {
+      this.fail(asNyxError(error, 'sampling'))
+    }
+  }
+
+  private stageFor(error: unknown): 'target' | 'source' | 'sampling' | 'rendering' {
+    if (error instanceof NyxError) return error.stage === 'target' || error.stage === 'source' || error.stage === 'sampling' || error.stage === 'rendering' ? error.stage : 'source'
+    return this.sampler ? 'sampling' : 'source'
+  }
+
+  private fail(error: NyxError): void {
+    if (this.state === 'destroyed' || this.state === 'failed') return
+    this.state = 'failed'
+    this.targetResolution?.cancel()
+    this.targetResolution = undefined
+    this.runtime?.dispose()
+    this.sampler?.dispose()
+    this.source?.dispose()
+    this.runtime = undefined
+    this.sampler = undefined
+    this.source = undefined
+    this.rejectReady(error)
+    if (!this.errorEmitted) {
+      this.errorEmitted = true
+      this.events.emit('error', { error, stage: error.stage })
+    }
+  }
+}
