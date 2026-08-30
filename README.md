@@ -20,14 +20,17 @@ const particles = new NyxFission({
   theme: 'nyx',
 })
 
-particles.mount(document.querySelector('#nyx-canvas'))
+const target = document.querySelector<HTMLCanvasElement>('#nyx-canvas')
+if (!target) throw new Error('Expected #nyx-canvas to exist')
+particles.mount(target)
 await particles.ready
 ```
 
 An explicit canvas reference is also supported:
 
 ```ts
-const canvas = document.querySelector('#nyx-canvas')
+const canvas = document.querySelector<HTMLCanvasElement>('#nyx-canvas')
+if (!canvas) throw new Error('Expected #nyx-canvas to exist')
 const particles = new NyxFission({ source: './portrait.jpg' })
 particles.mount(canvas)
 ```

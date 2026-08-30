@@ -8,6 +8,7 @@ import './style.css'
 
 type SourceChoice = 'image' | 'video' | 'usermedia'
 type MountChoice = 'explicit' | 'selector'
+type Status = 'Waiting for a source' | 'Loading source' | 'Live' | 'Needs attention' | 'Stopped' | 'Webcam unavailable'
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
 const videoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
@@ -22,7 +23,8 @@ const Demo = defineComponent({
     const mountChoice = ref<MountChoice>('explicit')
     const canvas = ref<HTMLCanvasElement | null>(null)
     const instance = ref<NyxFission | null>(null)
-    const status = ref('Waiting for a source')
+    const status = ref<Status>('Waiting for a source')
+    const statusTheme = ref(NyxTheme.Info)
     const statusDetail = ref('Choose a source, then mount the field.')
     const copyLabel = ref('Copy example')
 
@@ -41,13 +43,14 @@ const Demo = defineComponent({
       { value: 'selector', label: 'querySelector: #nyx-canvas' },
     ]
 
-    const setStatus = (nextStatus: string, detail: string) => {
+    const setStatus = (nextStatus: Status, detail: string, nextTheme: NyxTheme) => {
       status.value = nextStatus
+      statusTheme.value = nextTheme
       statusDetail.value = detail
     }
 
     const handleError = ({ error, stage }: NyxErrorEvent) => {
-      setStatus('Needs attention', `${stage}: ${error.message}`)
+      setStatus('Needs attention', `${stage}: ${error.message}`, NyxTheme.Danger)
     }
 
     const destroyInstance = () => {
@@ -59,7 +62,7 @@ const Demo = defineComponent({
     const createInstance = async () => {
       destroyInstance()
       if (sourceChoice.value === 'usermedia' && !window.isSecureContext) {
-        setStatus('Webcam unavailable', 'Webcam access requires HTTPS or localhost.')
+        setStatus('Webcam unavailable', 'Webcam access requires HTTPS or localhost.', NyxTheme.Warning)
         return
       }
 
@@ -73,13 +76,13 @@ const Demo = defineComponent({
       } as const
       const nextInstance = new NyxFission(config)
       instance.value = nextInstance
-      nextInstance.on('loading', () => setStatus('Loading source', 'Sampling the first frame.'))
-      nextInstance.on('ready', () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`))
+      nextInstance.on('loading', () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
+      nextInstance.on('ready', () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
       nextInstance.on('error', handleError)
-      nextInstance.on('destroy', () => setStatus('Stopped', 'The renderer released its browser resources.'))
+      nextInstance.on('destroy', () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
 
       nextInstance.ready.catch((error: NyxErrorEvent['error']) => {
-        if (instance.value === nextInstance) setStatus('Needs attention', error.message)
+        if (instance.value === nextInstance) setStatus('Needs attention', error.message, NyxTheme.Danger)
       })
       if (mountChoice.value === 'explicit' && canvas.value) nextInstance.mount(canvas.value)
     }
@@ -109,7 +112,24 @@ const Demo = defineComponent({
       window.setTimeout(() => { copyLabel.value = 'Copy example' }, 1600)
     }
 
-    onMounted(() => { void createInstance() })
+    const labelNyxControls = () => {
+      const sourceInput = document.getElementById('source-url')
+      sourceInput?.setAttribute('aria-describedby', 'url-help')
+      for (const [id, label] of [['theme-select', 'Particle theme'], ['mount-select', 'Integration shape']] as const) {
+        const hiddenSelect = document.getElementById(id)
+        const control = hiddenSelect?.closest('.nyx-select')?.querySelector<HTMLInputElement>('.nyx-select__input')
+        if (control) {
+          control.id = `${id}-control`
+          control.setAttribute('aria-label', label)
+        }
+      }
+    }
+
+    onMounted(async () => {
+      await nextTick()
+      labelNyxControls()
+      void createInstance()
+    })
     watch([theme, mountChoice], () => { void createInstance() })
     onBeforeUnmount(destroyInstance)
 
@@ -130,6 +150,7 @@ const Demo = defineComponent({
       sourceUrl,
       startWebcam,
       status,
+      statusTheme,
       statusDetail,
       theme,
       themeOptions,
@@ -162,15 +183,22 @@ const Demo = defineComponent({
             <p class="stage-caption">A local SVG fixture is loaded first, so this surface works without a network request.</p>
           </div>
           <aside class="control-rail" aria-label="Demo controls">
-            <div class="status-block"><NyxStatusDot theme="success" :label="status" /><div><strong>{{ status }}</strong><span aria-live="polite">{{ statusDetail }}</span></div></div>
-            <fieldset><legend>Source</legend><div class="source-actions"><NyxButton :variant="sourceChoice === 'image' ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource('image')">Image</NyxButton><NyxButton :variant="sourceChoice === 'video' ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource('video')">Video</NyxButton><NyxButton :variant="NyxVariant.Outline" :theme="NyxTheme.Warning" :size="NyxSize.Small" @click="startWebcam">Enable webcam</NyxButton></div><label class="field-label" for="source-url">Media URL</label><div class="url-row"><NyxInput id="source-url" v-model="sourceUrl" :type="NyxInputType.Url" :size="NyxSize.Small" aria-describedby="url-help" /><NyxButton :theme="NyxTheme.Secondary" :size="NyxSize.Small" @click="applySource">Apply</NyxButton></div><span id="url-help" class="help-text">Relative URLs resolve from <code>document.baseURI</code>.</span></fieldset>
-            <fieldset><legend>Appearance</legend><label class="field-label" for="theme-select">Particle theme</label><NyxSelect id="theme-select" v-model="theme" :options="themeOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /></fieldset>
-            <fieldset><legend>Mount target</legend><label class="field-label" for="mount-select">Integration shape</label><NyxSelect id="mount-select" v-model="mountChoice" :options="mountOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /><span class="help-text">Changing controls recreates the instance.</span></fieldset>
+            <div class="status-block"><NyxStatusDot :theme="statusTheme" :label="status" /><div><strong>{{ status }}</strong><span aria-live="polite">{{ statusDetail }}</span></div></div>
+            <fieldset><legend>Source</legend><div class="source-actions"><NyxButton :variant="sourceChoice === 'image' ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource('image')">Image</NyxButton><NyxButton :variant="sourceChoice === 'video' ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource('video')">Video</NyxButton><NyxButton :variant="NyxVariant.Outline" :theme="NyxTheme.Warning" :size="NyxSize.Small" @click="startWebcam">Enable webcam</NyxButton></div><label class="field-label" for="source-url">Media URL</label><div class="url-row"><NyxInput id="source-url" v-model="sourceUrl" :type="NyxInputType.Url" :size="NyxSize.Small" /><NyxButton :theme="NyxTheme.Secondary" :size="NyxSize.Small" @click="applySource">Apply</NyxButton></div><span id="url-help" class="help-text">Relative URLs resolve from <code>document.baseURI</code>.</span></fieldset>
+            <fieldset><legend>Appearance</legend><label class="field-label" for="theme-select-control">Particle theme</label><NyxSelect id="theme-select" v-model="theme" :options="themeOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /></fieldset>
+            <fieldset><legend>Mount target</legend><label class="field-label" for="mount-select-control">Integration shape</label><NyxSelect id="mount-select" v-model="mountChoice" :options="mountOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /><span class="help-text">Changing controls recreates the instance.</span></fieldset>
           </aside>
         </div>
       </section>
 
       <section class="quickstart" aria-labelledby="quickstart-title"><div><p class="eyebrow">02 / shortest path</p><h2 id="quickstart-title">One construct. One mount.</h2><p>NyxFission keeps the render loop and Three.js out of your application. Give it a source, then mount the canvas when you are ready.</p></div><div class="code-panel"><div class="code-bar"><span>quickstart.ts</span><NyxButton :variant="NyxVariant.Ghost" :size="NyxSize.Small" @click="copyExample">{{ copyLabel }}</NyxButton></div><pre><code><span class="code-keyword">import</span> { NyxFission } <span class="code-keyword">from</span> <span class="code-string">'nyx-fission'</span>
+
+<span class="code-keyword">const</span> particles = <span class="code-keyword">new</span> NyxFission({
+  source: <span class="code-string">'./portrait.jpg'</span>,
+  theme: <span class="code-string">'nyx'</span>
+})
+particles.mount(document.querySelector(<span class="code-string">'#nyx-canvas'</span>))
+<span class="code-keyword">await</span> particles.ready</code></pre></div></section>
 
       <section class="reference" id="reference" aria-labelledby="reference-title"><div class="section-heading"><div><p class="eyebrow">03 / reference</p><h2 id="reference-title">The browser details matter.</h2></div><p class="section-note">A predictable effect starts with predictable inputs.</p></div><div class="reference-grid"><article><span class="ref-index">A</span><h3>Sources</h3><p>Images and videos use a URL. The source must be readable by the browser and video media should be served with CORS headers. Webcam is opt-in and uses <code>getUserMedia</code>.</p></article><article><span class="ref-index">B</span><h3>URLs</h3><p>NyxFission resolves relative media URLs against <code>document.baseURI</code>, so deployed subpaths and base URLs work as expected. Absolute URLs remain absolute.</p></article><article><span class="ref-index">C</span><h3>Lifecycle</h3><p>Listen with <code>on('ready', fn)</code> and <code>off('ready', fn)</code>. Await <code>ready</code> for a promise, and call <code>destroy()</code> to release the renderer.</p></article><article><span class="ref-index">D</span><h3>Webcam safety</h3><p>Camera access requires a secure context, HTTPS or localhost, plus user permission. The demo never requests it on load, and no video leaves your device.</p></article></div></section>
       <footer><span>NYXFISSION / MEDIA TO PARTICLES</span><span>Built for the browser, not the render loop.</span></footer>
