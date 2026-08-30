@@ -13,6 +13,7 @@ import { resolveTheme } from './themes'
 import type { NyxEventMap, NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
+const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
 
 function lifecycleError(message: string, cause?: unknown): NyxError {
   return new NyxError(message, 'DESTROYED', 'lifecycle', cause)
@@ -42,6 +43,7 @@ export class NyxFission {
   private runtime: ThreeRuntime | undefined
   private frameWidth = 0
   private frameHeight = 0
+  private lastDynamicSampleTime = Number.NEGATIVE_INFINITY
   private errorEmitted = false
   private destroyEmitted = false
   private failureError: NyxError | undefined
@@ -162,7 +164,7 @@ export class NyxFission {
       this.source = source
       this.sampler = new FrameSampler(source)
       this.renderFirstFrame(canvas)
-      this.runtime?.start(() => this.renderFrame())
+      this.runtime?.start((time) => this.renderFrame(time))
       this.state = 'ready'
       this.resolveReady()
       this.events.emit('ready', undefined)
@@ -183,13 +185,15 @@ export class NyxFission {
     this.runtime = new ThreeRuntime(canvas, this.field, (error) => this.handleRuntimeError(error))
   }
 
-  private renderFrame(): void {
+  private renderFrame(time = 0): void {
     try {
       const sampler = this.sampler
       const runtime = this.runtime
       const source = this.source
       if (!sampler || !runtime || !this.field || !source) return
       if (source.kind === 'image') return
+      if (time - this.lastDynamicSampleTime < DYNAMIC_SAMPLE_INTERVAL_MS) return
+      this.lastDynamicSampleTime = time
       const frame = sampler.sample()
       if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
         this.frameWidth = frame.width
