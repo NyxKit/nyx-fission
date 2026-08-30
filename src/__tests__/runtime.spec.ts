@@ -61,6 +61,8 @@ const three = vi.hoisted(() => {
     constructor(_geometry: BufferGeometry, _material: ShaderMaterial) {}
   }
 
+  let nextResizeFailure: Error | undefined
+
   class WebGLRenderer {
     domElement: HTMLCanvasElement
     setSize = vi.fn()
@@ -69,6 +71,13 @@ const three = vi.hoisted(() => {
 
     constructor(parameters: { canvas: HTMLCanvasElement; alpha: boolean; antialias: boolean }) {
       this.domElement = parameters.canvas
+      if (nextResizeFailure) {
+        const cause = nextResizeFailure
+        nextResizeFailure = undefined
+        this.setSize.mockImplementationOnce(() => {
+          throw cause
+        })
+      }
     }
   }
 
@@ -80,6 +89,9 @@ const three = vi.hoisted(() => {
     ShaderMaterial: vi.fn((...args: unknown[]) => Reflect.construct(ShaderMaterial, args)),
     Points: vi.fn((...args: unknown[]) => Reflect.construct(Points, args)),
     WebGLRenderer: vi.fn((...args: unknown[]) => Reflect.construct(WebGLRenderer, args)),
+    failNextResize: (cause: Error) => {
+      nextResizeFailure = cause
+    },
   }
 })
 
@@ -166,6 +178,22 @@ describe('ThreeRuntime', () => {
 
     expect(renderer.mock.results[0].value.render).not.toHaveBeenCalled()
     expect(requestFrame).toHaveBeenCalledOnce()
+  })
+
+  it('stops and disposes the runtime when a frame callback throws', () => {
+    const cause = new Error('frame failed')
+    const runtime = new ThreeRuntime(canvas(), field())
+    runtime.start(() => {
+      throw cause
+    })
+
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+
+    expect(() => frame(123)).toThrow(cause)
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
   })
 
   it('resizes the renderer and camera from the content box', () => {
@@ -282,6 +310,37 @@ describe('ThreeRuntime', () => {
     expect(vi.mocked(three.Points)).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial)).toHaveBeenCalledOnce()
     runtime.dispose()
+  })
+
+  it('rejects field updates after disposal with a typed lifecycle error', () => {
+    const runtime = new ThreeRuntime(canvas(), field())
+    runtime.dispose()
+
+    expect(() => runtime.setField(field())).toThrowError(NyxError)
+    try {
+      runtime.setField(field())
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'DESTROYED', stage: 'rendering' })
+    }
+    expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(2)
+  })
+
+  it('cleans up when initial renderer sizing fails', () => {
+    const cause = new Error('resize failed')
+    three.failNextResize(cause)
+
+    let thrown: unknown
+    try {
+      new ThreeRuntime(canvas(), field())
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause })
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
   })
 
   it('maps renderer construction failures to RENDERER_UNAVAILABLE', () => {

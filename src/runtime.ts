@@ -66,9 +66,9 @@ export class ThreeRuntime {
       throw new NyxError('WebGL renderer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
 
-    this.resize(size.width, size.height)
     let observer: ResizeObserver | undefined
     try {
+      this.resize(size.width, size.height)
       observer = new ResizeObserver((entries) => {
         if (this.disposed) return
         const entry = entries[0]
@@ -88,6 +88,9 @@ export class ThreeRuntime {
   }
 
   setField(field: ParticleField): void {
+    if (this.disposed) {
+      throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+    }
     if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length) {
       this.positionAttribute.array.set(field.positions)
       this.positionAttribute.needsUpdate = true
@@ -114,10 +117,16 @@ export class ThreeRuntime {
     this.frameCallback = frameCallback
     const frame = (time: number): void => {
       if (this.disposed) return
-      this.frameCallback?.(time)
-      if (this.disposed) return
-      this.renderer.render(this.scene, this.camera)
-      this.frameId = requestAnimationFrame(frame)
+      this.frameId = undefined
+      try {
+        this.frameCallback?.(time)
+        if (this.disposed) return
+        this.renderer.render(this.scene, this.camera)
+        this.frameId = requestAnimationFrame(frame)
+      } catch (error) {
+        this.dispose()
+        throw error
+      }
     }
     this.frameId = requestAnimationFrame(frame)
   }
