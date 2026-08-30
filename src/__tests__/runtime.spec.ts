@@ -236,6 +236,7 @@ describe('ThreeRuntime', () => {
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect((runtime as unknown as { frameCallback?: unknown }).frameCallback).toBeUndefined()
   })
 
   it('ignores queued resize callbacks after disposal', () => {
@@ -248,6 +249,30 @@ describe('ThreeRuntime', () => {
 
     expect(renderer.setSize).toHaveBeenCalledOnce()
     expect(camera.updateProjectionMatrix).toHaveBeenCalledOnce()
+  })
+
+  it('disposes and rethrows a typed error when observed resize fails', () => {
+    const cause = new Error('resize failed')
+    const runtime = new ThreeRuntime(canvas(), field())
+    const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
+    renderer.setSize.mockImplementationOnce(() => {
+      throw cause
+    })
+    runtime.start(vi.fn())
+
+    let thrown: unknown
+    try {
+      resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause })
+    expect(cancelFrame).toHaveBeenCalledWith(42)
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(renderer.dispose).toHaveBeenCalledOnce()
   })
 
   it('cleans up resources when ResizeObserver construction fails', () => {

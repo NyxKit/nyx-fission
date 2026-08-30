@@ -75,7 +75,13 @@ export class ThreeRuntime {
         const entry = entries[0]
         const width = entry?.contentRect.width ?? canvasSize(this.canvas).width
         const height = entry?.contentRect.height ?? canvasSize(this.canvas).height
-        this.resize(width, height)
+        try {
+          this.resize(width, height)
+        } catch (cause) {
+          const error = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+          this.dispose()
+          throw error
+        }
       })
       observer.observe(canvas)
       this.observer = observer
@@ -137,6 +143,7 @@ export class ThreeRuntime {
     if (this.disposed) return
     this.disposed = true
     this.running = false
+    this.frameCallback = undefined
     if (this.frameId !== undefined) cancelAnimationFrame(this.frameId)
     this.frameId = undefined
     this.observer.disconnect()
