@@ -198,16 +198,18 @@ describe('ThreeRuntime', () => {
     expect(requestFrame).toHaveBeenCalledOnce()
   })
 
-  it('stops and disposes the runtime when a frame callback throws', () => {
+  it('reports and disposes the runtime when a frame callback throws', () => {
     const cause = new Error('frame failed')
-    const runtime = new ThreeRuntime(canvas(), field())
+    const onError = vi.fn()
+    const runtime = new ThreeRuntime(canvas(), field(), onError)
     runtime.start(() => {
       throw cause
     })
 
     const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
 
-    expect(() => frame(123)).toThrow(cause)
+    expect(() => frame(123)).not.toThrow()
+    expect(onError).toHaveBeenCalledWith(cause)
     expect(requestFrame).toHaveBeenCalledOnce()
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
@@ -276,23 +278,19 @@ describe('ThreeRuntime', () => {
     expect(camera.updateProjectionMatrix).toHaveBeenCalledOnce()
   })
 
-  it('disposes and rethrows a typed error when observed resize fails', () => {
+  it('reports and disposes a typed error when observed resize fails', () => {
     const cause = new Error('resize failed')
-    const runtime = new ThreeRuntime(canvas(), field())
+    const onError = vi.fn()
+    const runtime = new ThreeRuntime(canvas(), field(), onError)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     renderer.setSize.mockImplementationOnce(() => {
       throw cause
     })
     runtime.start(vi.fn())
 
-    let thrown: unknown
-    try {
-      resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
-    } catch (error) {
-      thrown = error
-    }
+    resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
 
-    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause, message: 'Renderer resize failed' })
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause, message: 'Renderer resize failed' }))
     expect(cancelFrame).toHaveBeenCalledWith(42)
     expect(observer.disconnect).toHaveBeenCalledOnce()
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()

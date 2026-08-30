@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; errorCallback?: (_error: unknown) => void }>,
 }))
 
 vi.mock('../media/source', () => ({ loadMediaSource: mocks.loadMediaSource }))
@@ -31,8 +31,10 @@ vi.mock('../runtime', () => ({
     setField = vi.fn()
     start = vi.fn()
     dispose = vi.fn()
+    errorCallback: ((_error: unknown) => void) | undefined
 
-    constructor() {
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, errorCallback?: (_error: unknown) => void) {
+      this.errorCallback = errorCallback
       mocks.runtimeInstances.push(this)
     }
   },
@@ -88,6 +90,20 @@ describe('NyxFission orchestration', () => {
 
     await expect(particles.ready).resolves.toBeUndefined()
     expect(mocks.loadMediaSource).toHaveBeenCalledWith('./portrait.jpg', 'image')
+    particles.destroy()
+  })
+
+  it('ignores a queued selector failure after same-stack explicit mounting', async () => {
+    const errors: unknown[] = []
+    const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
+    particles.on('error', (event) => errors.push(event))
+
+    particles.mount(canvas())
+    await expect(particles.ready).resolves.toBeUndefined()
+    await Promise.resolve()
+
+    expect(errors).toEqual([])
+    expect(mocks.loadMediaSource).toHaveBeenCalledOnce()
     particles.destroy()
   })
 
@@ -207,6 +223,22 @@ describe('NyxFission orchestration', () => {
 
     expect(mocks.sample).toHaveBeenCalledTimes(initialCalls + 1)
     expect(mocks.updateParticleField).toHaveBeenCalled()
+    particles.destroy()
+  })
+
+  it('reports asynchronous runtime failures after ready without throwing', async () => {
+    const failure = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering')
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    const errors: unknown[] = []
+    particles.on('error', (event) => errors.push(event))
+
+    particles.mount(canvas())
+    await particles.ready
+    const runtime = mocks.runtimeInstances[0]
+
+    expect(() => runtime.errorCallback?.(failure)).not.toThrow()
+    expect(errors).toEqual([{ error: failure, stage: 'rendering' }])
+    expect(runtime.dispose).toHaveBeenCalledOnce()
     particles.destroy()
   })
 })

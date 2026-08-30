@@ -20,6 +20,7 @@ const CAMERA_NEAR = 0.1
 const CAMERA_FAR = 3
 
 export type FrameCallback = (_time: number) => void
+type ErrorCallback = (_error: unknown) => void
 
 function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
   return {
@@ -43,8 +44,10 @@ export class ThreeRuntime {
   private running = false
   private disposed = false
   private frameCallback: FrameCallback | undefined
+  private readonly errorCallback: ErrorCallback | undefined
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, errorCallback?: ErrorCallback) {
+    this.errorCallback = errorCallback
     this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
@@ -90,7 +93,7 @@ export class ThreeRuntime {
         } catch (cause) {
           const error = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
           this.dispose()
-          throw error
+          this.errorCallback?.(error)
         }
       })
       observer.observe(canvas)
@@ -154,7 +157,7 @@ export class ThreeRuntime {
         if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
       } catch (error) {
         this.dispose()
-        throw error
+        this.errorCallback?.(error)
       }
     }
     this.frameId = requestAnimationFrame(frame)

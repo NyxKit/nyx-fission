@@ -59,10 +59,15 @@ export class NyxFission {
     this.rejectReady = rejectReady
 
     if (this.config.querySelector !== undefined) {
-      this.targetResolution = resolveCanvas(this.config)
-      this.targetResolution.promise.then(
-        (canvas) => this.initialise(canvas),
-        (error: unknown) => this.fail(asNyxError(error, 'target')),
+      const targetResolution = resolveCanvas(this.config)
+      this.targetResolution = targetResolution
+      targetResolution.promise.then(
+        (canvas) => {
+          if (this.targetResolution === targetResolution) this.initialise(canvas)
+        },
+        (error: unknown) => {
+          if (this.targetResolution === targetResolution) this.fail(asNyxError(error, 'target'))
+        },
       )
     }
   }
@@ -146,7 +151,7 @@ export class NyxFission {
     this.frameWidth = frame.width
     this.frameHeight = frame.height
     this.field = createParticleField(frame, resolveTheme(this.config.theme ?? 'nyx'))
-    this.runtime = new ThreeRuntime(canvas, this.field)
+    this.runtime = new ThreeRuntime(canvas, this.field, (error) => this.handleRuntimeError(error))
   }
 
   private renderFrame(): void {
@@ -172,6 +177,10 @@ export class NyxFission {
   private stageFor(error: unknown): 'target' | 'source' | 'sampling' | 'rendering' {
     if (error instanceof NyxError) return error.stage === 'target' || error.stage === 'source' || error.stage === 'sampling' || error.stage === 'rendering' ? error.stage : 'source'
     return this.sampler ? 'sampling' : 'source'
+  }
+
+  private handleRuntimeError(error: unknown): void {
+    this.fail(asNyxError(error, 'rendering'))
   }
 
   private fail(error: NyxError): void {
