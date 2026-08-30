@@ -39,6 +39,7 @@ export class ThreeRuntime {
   private positionAttribute: Float32BufferAttribute | undefined
   private colorAttribute: Float32BufferAttribute | undefined
   private frameId: number | undefined
+  private running = false
   private disposed = false
   private frameCallback: FrameCallback | undefined
 
@@ -113,16 +114,17 @@ export class ThreeRuntime {
   }
 
   start(frameCallback: FrameCallback): void {
-    if (this.disposed || this.frameId !== undefined) return
+    if (this.disposed || this.running) return
+    this.running = true
     this.frameCallback = frameCallback
     const frame = (time: number): void => {
       if (this.disposed) return
       this.frameId = undefined
       try {
         this.frameCallback?.(time)
-        if (this.disposed) return
+        if (this.disposed || !this.running) return
         this.renderer.render(this.scene, this.camera)
-        this.frameId = requestAnimationFrame(frame)
+        if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
       } catch (error) {
         this.dispose()
         throw error
@@ -134,6 +136,7 @@ export class ThreeRuntime {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.running = false
     if (this.frameId !== undefined) cancelAnimationFrame(this.frameId)
     this.frameId = undefined
     this.observer.disconnect()

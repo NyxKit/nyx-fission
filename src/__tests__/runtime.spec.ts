@@ -167,6 +167,20 @@ describe('ThreeRuntime', () => {
     runtime.dispose()
   })
 
+  it('does not start a second loop when a frame callback calls start', () => {
+    let runtime: ThreeRuntime
+    const callback = vi.fn(() => runtime.start(callback))
+    runtime = new ThreeRuntime(canvas(), field())
+    runtime.start(callback)
+
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+    frame(123)
+
+    expect(callback).toHaveBeenCalledOnce()
+    expect(requestFrame).toHaveBeenCalledTimes(2)
+    runtime.dispose()
+  })
+
   it('does not render or schedule another frame when the callback disposes', () => {
     const renderer = vi.mocked(three.WebGLRenderer)
     let runtime: ThreeRuntime
@@ -344,16 +358,19 @@ describe('ThreeRuntime', () => {
   })
 
   it('maps renderer construction failures to RENDERER_UNAVAILABLE', () => {
+    const cause = new Error('no WebGL')
     vi.mocked(three.WebGLRenderer).mockImplementationOnce(() => {
-      throw new Error('no WebGL')
+      throw cause
     })
 
-    expect(() => new ThreeRuntime(canvas(), field())).toThrowError(NyxError)
+    let thrown: unknown
     try {
       new ThreeRuntime(canvas(), field())
     } catch (error) {
-      expect(error).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering' })
+      thrown = error
     }
+    expect(thrown).toBeInstanceOf(NyxError)
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', stage: 'rendering', cause })
   })
 
   it('uses Three built-ins and required particle shader behavior', () => {
