@@ -34,6 +34,7 @@ export class NyxFission {
   private state: State = 'created'
   private target: HTMLCanvasElement | undefined
   private targetResolution: TargetResolution | undefined
+  private mountRequested = false
   private source: LoadedSource | undefined
   private sampler: FrameSampler | undefined
   private field: ParticleField | undefined
@@ -66,30 +67,28 @@ export class NyxFission {
     })
 
     if (this.config.querySelector !== undefined) {
-      const targetResolution = resolveCanvas(this.config)
-      this.targetResolution = targetResolution
-      targetResolution.promise.then(
-        (canvas) => {
-          if (this.targetResolution === targetResolution) this.initialise(canvas)
-        },
-        (error: unknown) => {
-          if (this.targetResolution === targetResolution) this.fail(asNyxError(error, 'target'))
-        },
-      )
+      void this.loadingReady.then(() => this.startAutomaticTargetResolution())
     }
   }
 
   mount(canvas: HTMLCanvasElement): void {
     if (this.state === 'destroyed') throw lifecycleError('NyxFission has been destroyed')
     if (this.state === 'failed') throw this.failureError
-    if (this.target !== undefined) {
+    if (this.target !== undefined || this.mountRequested) {
       throw new NyxError('NyxFission can only be mounted once', 'INVALID_TARGET', 'lifecycle')
     }
 
-    const target = validateCanvas(canvas)
+    this.mountRequested = true
     this.targetResolution?.cancel()
     this.targetResolution = undefined
-    this.initialise(target)
+    void this.loadingReady.then(() => {
+      if (this.state === 'destroyed' || this.state === 'failed') return
+      try {
+        this.initialise(validateCanvas(canvas))
+      } catch (error) {
+        this.fail(asNyxError(error, 'target'))
+      }
+    })
   }
 
   on<K extends keyof NyxEventMap>(event: K, listener: (_value: NyxEventMap[K]) => void): void {
@@ -130,6 +129,20 @@ export class NyxFission {
       this.state = 'loading'
       void this.load(canvas)
     })
+  }
+
+  private startAutomaticTargetResolution(): void {
+    if (this.state === 'destroyed' || this.state === 'failed' || this.mountRequested) return
+    const targetResolution = resolveCanvas(this.config)
+    this.targetResolution = targetResolution
+    targetResolution.promise.then(
+      (canvas) => {
+        if (this.targetResolution === targetResolution) this.initialise(canvas)
+      },
+      (error: unknown) => {
+        if (this.targetResolution === targetResolution) this.fail(asNyxError(error, 'target'))
+      },
+    )
   }
 
   private async load(canvas: HTMLCanvasElement): Promise<void> {

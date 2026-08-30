@@ -127,6 +127,21 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
   })
 
+  it('defers automatic target lookup until after loading', async () => {
+    const lookup = vi.spyOn(document, 'querySelector')
+    const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#missing' })
+    const loading = vi.fn()
+    particles.on('loading', loading)
+
+    expect(lookup).not.toHaveBeenCalled()
+    expect(loading).not.toHaveBeenCalled()
+    await expect(particles.ready).rejects.toMatchObject({ code: 'TARGET_NOT_FOUND' })
+
+    expect(loading).toHaveBeenCalledOnce()
+    expect(lookup).toHaveBeenCalled()
+    particles.destroy()
+  })
+
   it('delivers one loading event to listeners for an explicit mount', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
@@ -136,6 +151,20 @@ describe('NyxFission orchestration', () => {
     expect(loading).not.toHaveBeenCalled()
     await particles.ready
 
+    expect(loading).toHaveBeenCalledOnce()
+    particles.destroy()
+  })
+
+  it('defers explicit target validation and source work until after loading', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    const loading = vi.fn()
+    particles.on('loading', loading)
+
+    particles.mount(document.createElement('div') as unknown as HTMLCanvasElement)
+
+    expect(loading).not.toHaveBeenCalled()
+    expect(mocks.loadMediaSource).not.toHaveBeenCalled()
+    await expect(particles.ready).rejects.toMatchObject({ code: 'INVALID_TARGET' })
     expect(loading).toHaveBeenCalledOnce()
     particles.destroy()
   })
