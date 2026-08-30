@@ -290,6 +290,13 @@ describe('NyxFission orchestration', () => {
   })
 
   it('updates the existing field from each runtime frame', async () => {
+    mocks.loadMediaSource.mockResolvedValueOnce({
+      kind: 'video',
+      width: 2,
+      height: 2,
+      getFrameSource: vi.fn(),
+      dispose: vi.fn(),
+    })
     const particles = new NyxFission({ source: './portrait.jpg' })
     particles.mount(canvas())
     await particles.ready
@@ -301,6 +308,21 @@ describe('NyxFission orchestration', () => {
 
     expect(mocks.sample).toHaveBeenCalledTimes(initialCalls + 1)
     expect(mocks.updateParticleField).toHaveBeenCalled()
+    particles.destroy()
+  })
+
+  it('does not resample a static image on runtime frames', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    particles.mount(canvas())
+    await particles.ready
+    const runtime = mocks.runtimeInstances[0]
+    const initialCalls = mocks.sample.mock.calls.length
+
+    const frameCallback = runtime.start.mock.calls[0][0] as () => void
+    frameCallback()
+
+    expect(mocks.sample).toHaveBeenCalledTimes(initialCalls)
+    expect(mocks.updateParticleField).not.toHaveBeenCalled()
     particles.destroy()
   })
 

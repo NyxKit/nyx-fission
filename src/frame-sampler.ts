@@ -3,6 +3,9 @@
 import { NyxError } from './errors'
 import type { LoadedSource } from './media/source'
 
+// Keep pixel and downstream particle allocations bounded for high-resolution media.
+const MAX_WORKING_DIMENSION = 720
+
 export class FrameSampler {
   private readonly canvas: HTMLCanvasElement
   private readonly context: CanvasRenderingContext2D
@@ -35,9 +38,15 @@ export class FrameSampler {
       )
     }
 
-    if (this.width !== this.source.width || this.height !== this.source.height) {
-      this.width = this.source.width
-      this.height = this.source.height
+    const scale = Math.min(
+      1,
+      MAX_WORKING_DIMENSION / Math.max(this.source.width, this.source.height),
+    )
+    const width = Math.max(1, Math.round(this.source.width * scale))
+    const height = Math.max(1, Math.round(this.source.height * scale))
+    if (this.width !== width || this.height !== height) {
+      this.width = width
+      this.height = height
       this.canvas.width = this.width
       this.canvas.height = this.height
     }

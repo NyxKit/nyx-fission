@@ -101,4 +101,67 @@ describe('FrameSampler', () => {
     )
     expect(context.drawImage).not.toHaveBeenCalled()
   })
+
+  it('downscales a landscape source to the bounded working dimensions', () => {
+    const imageData = { data: new Uint8ClampedArray(720 * 405 * 4), width: 720, height: 405 } as ImageData
+    const context = {
+      drawImage: vi.fn(),
+      getImageData: vi.fn(() => imageData),
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+    }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      canvas as unknown as HTMLElement,
+    )
+    const source = {
+      kind: 'video' as const,
+      element: {} as HTMLVideoElement,
+      width: 3840,
+      height: 2160,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    const sampler = new FrameSampler(source)
+
+    expect(sampler.sample()).toBe(imageData)
+    expect(canvas.width).toBe(720)
+    expect(canvas.height).toBe(405)
+    expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 720, 405)
+    expect(context.getImageData).toHaveBeenCalledWith(0, 0, 720, 405)
+  })
+
+  it('downscales a portrait source without changing its aspect ratio', () => {
+    const imageData = { data: new Uint8ClampedArray(360 * 720 * 4), width: 360, height: 720 } as ImageData
+    const context = {
+      drawImage: vi.fn(),
+      getImageData: vi.fn(() => imageData),
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+    }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      canvas as unknown as HTMLElement,
+    )
+    const source = {
+      kind: 'image' as const,
+      element: {} as HTMLImageElement,
+      width: 1080,
+      height: 2160,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    new FrameSampler(source).sample()
+
+    expect(canvas.width).toBe(360)
+    expect(canvas.height).toBe(720)
+    expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 360, 720)
+    expect(context.getImageData).toHaveBeenCalledWith(0, 0, 360, 720)
+  })
 })

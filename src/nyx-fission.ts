@@ -187,7 +187,9 @@ export class NyxFission {
     try {
       const sampler = this.sampler
       const runtime = this.runtime
-      if (!sampler || !runtime || !this.field) return
+      const source = this.source
+      if (!sampler || !runtime || !this.field || !source) return
+      if (source.kind === 'image') return
       const frame = sampler.sample()
       if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
         this.frameWidth = frame.width
