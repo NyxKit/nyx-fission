@@ -40,7 +40,7 @@ const Demo = defineComponent({
     ]
     const mountOptions = [
       { value: 'explicit', label: 'instance.mount(canvas)' },
-      { value: 'selector', label: 'querySelector: #nyx-canvas' },
+      { value: 'selector', label: 'querySelector: #particles-canvas' },
     ]
 
     const setStatus = (nextStatus: Status, detail: string, nextTheme: NyxTheme) => {
@@ -51,6 +51,15 @@ const Demo = defineComponent({
 
     const handleError = ({ error, stage }: NyxErrorEvent) => {
       setStatus('Needs attention', `${stage}: ${error.message}`, NyxTheme.Danger)
+    }
+
+    const getParticleCanvas = (): HTMLCanvasElement => {
+      const target = document.querySelector('#particles-canvas')
+      if (target instanceof HTMLCanvasElement) return target
+
+      const message = 'Particle target #particles-canvas must be an HTMLCanvasElement.'
+      setStatus('Needs attention', message, NyxTheme.Danger)
+      throw new Error(message)
     }
 
     const destroyInstance = () => {
@@ -66,25 +75,31 @@ const Demo = defineComponent({
         return
       }
 
-      const config = {
-        type: sourceChoice.value,
-        theme: theme.value,
-        ...(sourceChoice.value === 'usermedia'
-          ? {}
-          : { source: new URL(sourceUrl.value, document.baseURI).href }),
-        ...(mountChoice.value === 'selector' ? { querySelector: '#nyx-canvas' } : {}),
-      } as const
-      const nextInstance = new NyxFission(config)
-      instance.value = nextInstance
-      nextInstance.on('loading', () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
-      nextInstance.on('ready', () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
-      nextInstance.on('error', handleError)
-      nextInstance.on('destroy', () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
+      try {
+        const explicitTarget = mountChoice.value === 'explicit' ? getParticleCanvas() : undefined
+        const config = {
+          type: sourceChoice.value,
+          theme: theme.value,
+          ...(sourceChoice.value === 'usermedia'
+            ? {}
+            : { source: new URL(sourceUrl.value, document.baseURI).href }),
+          ...(mountChoice.value === 'selector' ? { querySelector: '#particles-canvas' } : {}),
+        } as const
+        const nextInstance = new NyxFission(config)
+        instance.value = nextInstance
+        nextInstance.on('loading', () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
+        nextInstance.on('ready', () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
+        nextInstance.on('error', handleError)
+        nextInstance.on('destroy', () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
 
-      nextInstance.ready.catch((error: NyxErrorEvent['error']) => {
-        if (instance.value === nextInstance) setStatus('Needs attention', error.message, NyxTheme.Danger)
-      })
-      if (mountChoice.value === 'explicit' && canvas.value) nextInstance.mount(canvas.value)
+        nextInstance.ready.catch((error: NyxErrorEvent['error']) => {
+          if (instance.value === nextInstance) setStatus('Needs attention', error.message, NyxTheme.Danger)
+        })
+        if (explicitTarget) nextInstance.mount(explicitTarget)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'The media configuration is invalid.'
+        setStatus('Needs attention', `Could not start NyxFission: ${message}`, NyxTheme.Danger)
+      }
     }
 
     const chooseSource = async (choice: SourceChoice) => {
@@ -106,7 +121,7 @@ const Demo = defineComponent({
     }
 
     const copyExample = async () => {
-      const example = `const particles = new NyxFission({ source: '${sourceUrl.value}' })\nparticles.mount(document.querySelector('#nyx-canvas'))`
+      const example = `const particles = new NyxFission({ source: '${sourceUrl.value}' })\nconst target = document.querySelector<HTMLCanvasElement>('#particles-canvas')\nif (!target) throw new Error('Expected #particles-canvas to exist')\nparticles.mount(target)`
       await navigator.clipboard?.writeText(example)
       copyLabel.value = 'Copied'
       window.setTimeout(() => { copyLabel.value = 'Copy example' }, 1600)
@@ -179,7 +194,7 @@ const Demo = defineComponent({
         <div class="stage-layout">
           <div class="stage-wrap">
             <div class="stage-meta"><span>LIVE OUTPUT</span><span>640 × 480 target</span></div>
-            <div class="stage"><canvas id="nyx-canvas" ref="canvas" aria-label="Live NyxFission particle output"></canvas><div class="stage-corner">NYX<br>FISSION</div></div>
+            <div class="stage"><canvas id="particles-canvas" ref="canvas" aria-label="Live NyxFission particle output"></canvas><div class="stage-corner">NYX<br>FISSION</div></div>
             <p class="stage-caption">A local SVG fixture is loaded first, so this surface works without a network request.</p>
           </div>
           <aside class="control-rail" aria-label="Demo controls">
@@ -197,7 +212,9 @@ const Demo = defineComponent({
   source: <span class="code-string">'./portrait.jpg'</span>,
   theme: <span class="code-string">'nyx'</span>
 })
-particles.mount(document.querySelector(<span class="code-string">'#nyx-canvas'</span>))
+<span class="code-keyword">const</span> target = document.querySelector&lt;HTMLCanvasElement&gt;(<span class="code-string">'#particles-canvas'</span>)
+<span class="code-keyword">if</span> (!target) <span class="code-keyword">throw</span> <span class="code-keyword">new</span> Error(<span class="code-string">'Expected #particles-canvas to exist'</span>)
+particles.mount(target)
 <span class="code-keyword">await</span> particles.ready</code></pre></div></section>
 
       <section class="reference" id="reference" aria-labelledby="reference-title"><div class="section-heading"><div><p class="eyebrow">03 / reference</p><h2 id="reference-title">The browser details matter.</h2></div><p class="section-note">A predictable effect starts with predictable inputs.</p></div><div class="reference-grid"><article><span class="ref-index">A</span><h3>Sources</h3><p>Images and videos use a URL. The source must be readable by the browser and video media should be served with CORS headers. Webcam is opt-in and uses <code>getUserMedia</code>.</p></article><article><span class="ref-index">B</span><h3>URLs</h3><p>NyxFission resolves relative media URLs against <code>document.baseURI</code>, so deployed subpaths and base URLs work as expected. Absolute URLs remain absolute.</p></article><article><span class="ref-index">C</span><h3>Lifecycle</h3><p>Listen with <code>on('ready', fn)</code> and <code>off('ready', fn)</code>. Await <code>ready</code> for a promise, and call <code>destroy()</code> to release the renderer.</p></article><article><span class="ref-index">D</span><h3>Webcam safety</h3><p>Camera access requires a secure context, HTTPS or localhost, plus user permission. The demo never requests it on load, and no video leaves your device.</p></article></div></section>

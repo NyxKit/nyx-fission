@@ -20,8 +20,8 @@ const particles = new NyxFission({
   theme: 'nyx',
 })
 
-const target = document.querySelector<HTMLCanvasElement>('#nyx-canvas')
-if (!target) throw new Error('Expected #nyx-canvas to exist')
+const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')
+if (!target) throw new Error('Expected #particles-canvas to exist')
 particles.mount(target)
 await particles.ready
 ```
@@ -29,18 +29,18 @@ await particles.ready
 An explicit canvas reference is also supported:
 
 ```ts
-const canvas = document.querySelector<HTMLCanvasElement>('#nyx-canvas')
-if (!canvas) throw new Error('Expected #nyx-canvas to exist')
+const canvas = document.querySelector<HTMLCanvasElement>('#particles-canvas')
+if (!canvas) throw new Error('Expected #particles-canvas to exist')
 const particles = new NyxFission({ source: './portrait.jpg' })
 particles.mount(canvas)
 ```
 
-The selector form mounts when the matching canvas appears:
+The selector form can observe late insertion while the document is still loading. It performs one final lookup at `DOMContentLoaded`; if the document is already ready and no matching canvas exists, it fails immediately:
 
 ```ts
 const particles = new NyxFission({
   source: './portrait.jpg',
-  querySelector: '#nyx-canvas',
+  querySelector: '#particles-canvas',
 })
 ```
 
