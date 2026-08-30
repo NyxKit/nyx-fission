@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
 import { ThreeRuntime } from '../runtime'
 import type { ParticleField } from '../particles'
+import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
 
 const three = vi.hoisted(() => {
@@ -194,5 +195,9 @@ describe('ThreeRuntime', () => {
     expect(vertexShader).toContain('gl_PointSize = pointSize')
     expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0)')
     expect(vertexShader).toContain('particleColor = color')
+  })
+
+  it('uses ordered smoothstep edges for soft circular alpha', () => {
+    expect(fragmentShader).toContain('1.0 - smoothstep(0.35, 0.5, distanceFromCenter)')
   })
 })
