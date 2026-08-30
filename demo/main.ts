@@ -13,7 +13,7 @@ type MountChoice = 'explicit' | 'selector'
 type Status = 'Waiting for a source' | 'Loading source' | 'Live' | 'Needs attention' | 'Stopped' | 'Webcam unavailable'
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
-const videoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+const videoUrl = new URL('./fixtures/nyx-orbit.webm', document.baseURI).href
 
 const Demo = defineComponent({
   name: 'NyxFissionDemo',

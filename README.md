@@ -87,7 +87,7 @@ pnpm install
 pnpm dev
 ```
 
-Open the printed local URL. The initial local SVG fixture is deterministic and same-origin. The video control uses a public demonstration URL and may fail where that host does not return CORS headers. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
+Open the printed local URL. The local SVG and WebM fixtures are deterministic and same-origin, so the image and video controls work without a third-party request. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
 
 To build the demo separately:
 

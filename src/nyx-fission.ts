@@ -10,10 +10,24 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import type { NyxEventMap, NyxFissionConfig } from './types'
+import type { MediaType, NyxEventMap, NyxFissionConfig, ThemeName } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
+const mediaTypes: readonly MediaType[] = ['image', 'video', 'usermedia']
+const themeNames: readonly ThemeName[] = ['grayscale', 'discodip', 'pastel', 'nyx']
+
+function validateConfig(config: NyxFissionConfig): void {
+  if (config.type !== undefined && !mediaTypes.includes(config.type)) {
+    throw new NyxError(`Unsupported media type: ${String(config.type)}`, 'INVALID_CONFIG', 'source')
+  }
+  if (config.theme !== undefined && !themeNames.includes(config.theme)) {
+    throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', 'sampling')
+  }
+  if (config.type !== 'usermedia' && !config.source) {
+    throw new NyxError('A media source is required', 'INVALID_CONFIG', 'source')
+  }
+}
 
 function lifecycleError(message: string, cause?: unknown): NyxError {
   return new NyxError(message, 'DESTROYED', 'lifecycle', cause)
@@ -50,9 +64,7 @@ export class NyxFission {
 
   constructor(config: NyxFissionConfig = {}) {
     this.config = { ...config }
-    if (this.config.type !== 'usermedia' && !this.config.source) {
-      throw new NyxError('A media source is required', 'INVALID_CONFIG', 'source')
-    }
+    validateConfig(this.config)
 
     let resolveReady!: () => void
     let rejectReady!: (_error: NyxError) => void

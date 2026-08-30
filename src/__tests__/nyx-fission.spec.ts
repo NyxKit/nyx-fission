@@ -73,6 +73,22 @@ describe('NyxFission orchestration', () => {
     document.body.replaceChildren()
   })
 
+  it('rejects an invalid media type before starting work', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as 'image' })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'source' }),
+    )
+    expect(mocks.resolveMediaType).not.toHaveBeenCalled()
+    expect(mocks.loadMediaSource).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid theme before starting work', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', theme: 'electric' as 'nyx' })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+    expect(mocks.resolveMediaType).not.toHaveBeenCalled()
+    expect(mocks.loadMediaSource).not.toHaveBeenCalled()
+  })
+
   it('resolves ready after explicit image mounting', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const canvas = document.createElement('canvas')

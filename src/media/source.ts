@@ -78,6 +78,7 @@ function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
       if (settled) return
       settled = true
       cleanup()
+      element.src = ''
       removeElement(element)
       reject(mediaAbortError())
     }

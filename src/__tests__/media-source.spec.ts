@@ -305,9 +305,10 @@ describe('loadMediaSource', () => {
   })
 
   it('aborts a pending image load and removes its listeners and element', async () => {
+    const assignments: string[] = []
     const image = mediaElement({
       set crossOrigin(_value: string) {},
-      set src(_value: string) {},
+      set src(value: string) { assignments.push(value) },
     })
     vi.spyOn(document, 'createElement').mockReturnValueOnce(image as unknown as HTMLElement)
     const controller = new AbortController()
@@ -318,6 +319,7 @@ describe('loadMediaSource', () => {
     await expect(loading).rejects.toMatchObject({ code: 'DESTROYED', stage: 'source' })
     expect(image.removeEventListener).toHaveBeenCalledWith('load', expect.any(Function))
     expect(image.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
+    expect(assignments).toEqual(['http://localhost:3000/photo.jpg', ''])
     expect(image.remove).toHaveBeenCalledOnce()
   })
 
