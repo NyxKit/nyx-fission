@@ -23,7 +23,8 @@
     "test:unit": "vitest run",
     "test": "vitest",
     "lint": "eslint .",
-    "dev": "vite --config vite.config.ts",
+    "dev": "vite --config vite.config.ts --mode demo",
+    "build:demo": "vite build --config vite.config.ts --mode demo",
     "prepack": "run-s build declarations"
   },
   "peerDependencies": {
@@ -31,13 +32,17 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^5.2.1",
     "@types/three": "^0.171.0",
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.14.0",
     "jsdom": "^25.0.1",
     "npm-run-all2": "^7.0.2",
+    "nyx-kit": "^2.0.39",
     "three": "^0.171.0",
     "typescript": "~5.6.3",
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4",
     "vite": "^6.0.5",
     "vite-plugin-glsl": "^1.3.1",
     "vitest": "^2.1.8"

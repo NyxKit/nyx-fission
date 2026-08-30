@@ -1,11 +1,16 @@
 import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
 import glsl from 'vite-plugin-glsl'
 
-export default defineConfig(({ command }) => {
-  if (command === 'serve') {
+export default defineConfig(({ command, mode }) => {
+  if (command === 'serve' || mode === 'demo') {
     return {
       root: 'demo',
-      plugins: [glsl()],
+      plugins: [vue(), glsl()],
+      build: {
+        outDir: '../dist-demo',
+        emptyOutDir: true,
+      },
     }
   }
 
