@@ -1,4 +1,4 @@
-/* global Event, HTMLCanvasElement, ImageData, document */
+/* global Event, HTMLCanvasElement, ImageData, document, setTimeout, AbortSignal */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
@@ -90,7 +90,7 @@ describe('NyxFission orchestration', () => {
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#particles' })
 
     await expect(particles.ready).resolves.toBeUndefined()
-    expect(mocks.loadMediaSource).toHaveBeenCalledWith('./portrait.jpg', 'image')
+    expect(mocks.loadMediaSource).toHaveBeenCalledWith('./portrait.jpg', 'image', expect.any(AbortSignal))
     particles.destroy()
   })
 
@@ -259,7 +259,7 @@ describe('NyxFission orchestration', () => {
     explicit.mount(canvas())
     await explicit.ready
     expect(mocks.resolveMediaType).toHaveBeenCalledWith('video', 'http://localhost:3000/portrait.jpg')
-    expect(mocks.loadMediaSource).toHaveBeenLastCalledWith('./portrait.jpg', 'video')
+    expect(mocks.loadMediaSource).toHaveBeenLastCalledWith('./portrait.jpg', 'video', expect.any(AbortSignal))
     explicit.destroy()
   })
 
@@ -331,5 +331,22 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
     particles.destroy()
     expect(destroys).toHaveBeenCalledOnce()
+  })
+
+  it('disposes a source that resolves after orchestration is destroyed', async () => {
+    let resolveSource!: (_source: unknown) => void
+    mocks.loadMediaSource.mockReturnValueOnce(new Promise((resolve) => { resolveSource = resolve }))
+    const source = { kind: 'image', width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() }
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    void particles.ready.catch(() => undefined)
+    particles.mount(canvas())
+    await vi.waitFor(() => expect(mocks.loadMediaSource).toHaveBeenCalledOnce())
+
+    particles.destroy()
+    resolveSource(source)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(source.dispose).toHaveBeenCalledOnce()
+    expect(mocks.runtimeInstances).toHaveLength(0)
   })
 })

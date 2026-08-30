@@ -1,4 +1,4 @@
-/* global document, navigator, HTMLImageElement, HTMLVideoElement, MediaStream, Event */
+/* global document, navigator, HTMLImageElement, HTMLVideoElement, MediaStream, Event, AbortSignal */
 
 import { NyxError } from '../errors'
 import type { MediaType } from '../types'
@@ -33,6 +33,10 @@ function mediaLoadError(cause: unknown): NyxError {
   )
 }
 
+function mediaAbortError(): NyxError {
+  return new NyxError('Media source loading was cancelled', 'DESTROYED', 'source')
+}
+
 function removeElement(element: { remove: () => void }): void {
   element.remove()
 }
@@ -60,16 +64,26 @@ function disposeUrlVideo(element: HTMLVideoElement): () => void {
   }
 }
 
-function loadUrlImage(url: string): Promise<ImageSource> {
+function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
   const element = document.createElement('img')
-  element.crossOrigin = 'anonymous'
 
   return new Promise((resolve, reject) => {
+    let settled = false
     const cleanup = () => {
       element.removeEventListener('load', handleLoad)
       element.removeEventListener('error', handleError)
+      signal?.removeEventListener('abort', handleAbort)
+    }
+    const handleAbort = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      removeElement(element)
+      reject(mediaAbortError())
     }
     const handleLoad = () => {
+      if (settled) return
+      settled = true
       cleanup()
       resolve({
         kind: 'image',
@@ -81,34 +95,49 @@ function loadUrlImage(url: string): Promise<ImageSource> {
       })
     }
     const handleError = (cause: Event) => {
+      if (settled) return
+      settled = true
       cleanup()
       removeElement(element)
       reject(mediaLoadError(cause))
     }
 
+    signal?.addEventListener('abort', handleAbort, { once: true })
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
     element.addEventListener('load', handleLoad)
     element.addEventListener('error', handleError)
     try {
+      element.crossOrigin = 'anonymous'
       element.src = url
     } catch (cause) {
-      cleanup()
-      removeElement(element)
-      reject(mediaLoadError(cause))
+      handleError(cause as Event)
     }
   })
 }
 
-function loadUrlVideo(url: string): Promise<VideoSource> {
+function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
   const element = document.createElement('video')
-  element.crossOrigin = 'anonymous'
-  element.preload = 'auto'
 
   return new Promise((resolve, reject) => {
+    let settled = false
     const cleanup = () => {
       element.removeEventListener('loadeddata', handleLoad)
       element.removeEventListener('error', handleError)
+      signal?.removeEventListener('abort', handleAbort)
+    }
+    const handleAbort = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      disposeUrlVideo(element)()
+      reject(mediaAbortError())
     }
     const handleLoad = () => {
+      if (settled) return
+      settled = true
       cleanup()
       resolve({
         kind: 'video',
@@ -120,41 +149,89 @@ function loadUrlVideo(url: string): Promise<VideoSource> {
       })
     }
     const handleError = (cause: Event) => {
+      if (settled) return
+      settled = true
       cleanup()
       removeElement(element)
       reject(mediaLoadError(cause))
     }
 
+    signal?.addEventListener('abort', handleAbort, { once: true })
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
     element.addEventListener('loadeddata', handleLoad)
     element.addEventListener('error', handleError)
     try {
+      element.crossOrigin = 'anonymous'
+      element.preload = 'auto'
       element.src = url
     } catch (cause) {
-      cleanup()
-      removeElement(element)
-      reject(mediaLoadError(cause))
+      handleError(cause as Event)
     }
   })
 }
 
-async function loadUserMedia(): Promise<VideoSource> {
+async function loadUserMedia(signal?: AbortSignal): Promise<VideoSource> {
   const element = document.createElement('video')
   element.autoplay = true
   element.muted = true
   element.playsInline = true
 
-  let stream: MediaStream
+  let disposed = false
+  let aborted = false
+  let stream: MediaStream | undefined
+  let rejectAbort!: (_error: NyxError) => void
+  let cleanupMetadata = () => {}
+  const abortPromise = new Promise<never>((_resolve, reject) => {
+    rejectAbort = reject
+  })
+  const stopStream = (value: MediaStream | undefined) => {
+    value?.getTracks().forEach((track) => track.stop())
+  }
+  const dispose = (value = stream) => {
+    if (disposed) return
+    disposed = true
+    if (value) element.pause()
+    if (value) stopStream(value)
+    element.srcObject = null
+    removeElement(element)
+  }
+  const handleAbort = () => {
+    if (aborted) return
+    aborted = true
+    cleanupMetadata()
+    dispose()
+    rejectAbort(mediaAbortError())
+  }
+
+  signal?.addEventListener('abort', handleAbort, { once: true })
+  if (signal?.aborted) {
+    handleAbort()
+    throw mediaAbortError()
+  }
+
+  let acquisition: Promise<MediaStream>
   try {
     const getUserMedia = navigator.mediaDevices?.getUserMedia
     if (!getUserMedia) {
       throw new Error('Webcam access is unavailable in this browser or context')
     }
-    stream = await getUserMedia.call(navigator.mediaDevices, {
+    acquisition = getUserMedia.call(navigator.mediaDevices, {
       video: true,
       audio: false,
     })
+    acquisition.then((lateStream) => {
+      if (aborted || disposed) stopStream(lateStream)
+    }, () => {})
+    stream = await Promise.race([acquisition, abortPromise])
   } catch (cause) {
-    removeElement(element)
+    signal?.removeEventListener('abort', handleAbort)
+    if (aborted || signal?.aborted) {
+      throw cause instanceof NyxError ? cause : mediaAbortError()
+    }
+    dispose()
     const name =
       typeof cause === 'object' && cause !== null && 'name' in cause
         ? cause.name
@@ -171,7 +248,7 @@ async function loadUserMedia(): Promise<VideoSource> {
   }
 
   try {
-    await new Promise<void>((resolve, reject) => {
+    await Promise.race([new Promise<void>((resolve, reject) => {
       const handleMetadata = () => {
         cleanup()
         resolve()
@@ -184,17 +261,23 @@ async function loadUserMedia(): Promise<VideoSource> {
         element.removeEventListener('loadedmetadata', handleMetadata)
         element.removeEventListener('error', handleError)
       }
+      cleanupMetadata = cleanup
 
       element.addEventListener('loadedmetadata', handleMetadata)
       element.addEventListener('error', handleError)
       element.srcObject = stream
-    })
-    await element.play()
+    }), abortPromise])
+    await Promise.race([element.play(), abortPromise])
   } catch (cause) {
-    stream.getTracks().forEach((track) => track.stop())
-    removeElement(element)
+    signal?.removeEventListener('abort', handleAbort)
+    dispose()
+    if (aborted || signal?.aborted) {
+      throw cause instanceof NyxError ? cause : mediaAbortError()
+    }
     throw cause instanceof NyxError ? cause : mediaLoadError(cause)
   }
+
+  signal?.removeEventListener('abort', handleAbort)
 
   return {
     kind: 'usermedia',
@@ -203,16 +286,8 @@ async function loadUserMedia(): Promise<VideoSource> {
     height: element.videoHeight,
     getFrameSource: () => element,
     dispose: (() => {
-      let disposed = false
       return () => {
-        if (disposed) {
-          return
-        }
-        disposed = true
-        element.pause()
-        stream.getTracks().forEach((track) => track.stop())
-        element.srcObject = null
-        removeElement(element)
+        dispose()
       }
     })(),
   }
@@ -221,11 +296,12 @@ async function loadUserMedia(): Promise<VideoSource> {
 export function loadMediaSource(
   source: string | undefined,
   type: MediaType,
+  signal?: AbortSignal,
 ): Promise<LoadedSource> {
   if (type === 'usermedia') {
-    return loadUserMedia()
+    return loadUserMedia(signal)
   }
 
   const url = resolveMediaUrl(source ?? '')
-  return type === 'image' ? loadUrlImage(url) : loadUrlVideo(url)
+  return type === 'image' ? loadUrlImage(url, signal) : loadUrlVideo(url, signal)
 }

@@ -1,4 +1,4 @@
-/* global document, navigator, queueMicrotask, HTMLElement, MediaStream, DOMException */
+/* global document, navigator, queueMicrotask, HTMLElement, MediaStream, DOMException, AbortController */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
@@ -6,6 +6,7 @@ import { loadMediaSource } from '../media/source'
 
 type MediaElementMethods = {
   remove: ReturnType<typeof vi.fn>
+  removeEventListener: ReturnType<typeof vi.fn>
   emit: (_event: string) => void
 }
 
@@ -249,5 +250,69 @@ describe('loadMediaSource', () => {
 
     expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
     expect(image.remove).toHaveBeenCalledOnce()
+  })
+
+  it('aborts a pending image load and removes its listeners and element', async () => {
+    const image = mediaElement({
+      set crossOrigin(_value: string) {},
+      set src(_value: string) {},
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(image as unknown as HTMLElement)
+    const controller = new AbortController()
+    const loading = loadMediaSource('photo.jpg', 'image', controller.signal)
+
+    controller.abort()
+
+    await expect(loading).rejects.toMatchObject({ code: 'DESTROYED', stage: 'source' })
+    expect(image.removeEventListener).toHaveBeenCalledWith('load', expect.any(Function))
+    expect(image.removeEventListener).toHaveBeenCalledWith('error', expect.any(Function))
+    expect(image.remove).toHaveBeenCalledOnce()
+  })
+
+  it('aborts a pending video load and clears its media element', async () => {
+    const video = mediaElement({
+      pause: vi.fn(),
+      load: vi.fn(),
+      removeAttribute: vi.fn(),
+      set crossOrigin(_value: string) {},
+      set src(_value: string) {},
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(video as unknown as HTMLElement)
+    const controller = new AbortController()
+    const loading = loadMediaSource('clip.mp4', 'video', controller.signal)
+
+    controller.abort()
+
+    await expect(loading).rejects.toMatchObject({ code: 'DESTROYED', stage: 'source' })
+    expect(video.pause).toHaveBeenCalledOnce()
+    expect(video.removeAttribute).toHaveBeenCalledWith('src')
+    expect(video.load).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
+  })
+
+  it('cleans a webcam stream that resolves after acquisition is aborted', async () => {
+    let resolveStream!: (_stream: MediaStream) => void
+    const getUserMedia = vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockReturnValueOnce(
+      new Promise((resolve) => { resolveStream = resolve }) as Promise<MediaStream>,
+    )
+    const stop = vi.fn()
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream
+    const video = mediaElement({
+      pause: vi.fn(),
+      set srcObject(_value: MediaStream | null) {},
+    })
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(video as unknown as HTMLElement)
+    const controller = new AbortController()
+    const loading = loadMediaSource(undefined, 'usermedia', controller.signal)
+
+    controller.abort()
+    await expect(loading).rejects.toMatchObject({ code: 'DESTROYED', stage: 'source' })
+    resolveStream(stream)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(getUserMedia).toHaveBeenCalledOnce()
+    expect(stop).toHaveBeenCalledOnce()
+    expect(video.remove).toHaveBeenCalledOnce()
   })
 })

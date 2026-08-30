@@ -1,4 +1,4 @@
-/* global HTMLCanvasElement, queueMicrotask */
+/* global HTMLCanvasElement, queueMicrotask, AbortController */
 
 import { NyxEventEmitter } from './events'
 import { NyxError } from './errors'
@@ -35,6 +35,7 @@ export class NyxFission {
   private target: HTMLCanvasElement | undefined
   private targetResolution: TargetResolution | undefined
   private mountRequested = false
+  private loadController: AbortController | undefined
   private source: LoadedSource | undefined
   private sampler: FrameSampler | undefined
   private field: ParticleField | undefined
@@ -104,6 +105,8 @@ export class NyxFission {
     this.state = 'destroyed'
     this.targetResolution?.cancel()
     this.targetResolution = undefined
+    this.loadController?.abort()
+    this.loadController = undefined
     this.runtime?.dispose()
     this.sampler?.dispose()
     this.source?.dispose()
@@ -146,10 +149,12 @@ export class NyxFission {
   }
 
   private async load(canvas: HTMLCanvasElement): Promise<void> {
+    const loadController = new AbortController()
+    this.loadController = loadController
     try {
       const sourceUrl = this.config.source ? resolveMediaUrl(this.config.source) : ''
       const type = resolveMediaType(this.config.type, sourceUrl)
-      const source = await loadMediaSource(this.config.source, type)
+      const source = await loadMediaSource(this.config.source, type, loadController.signal)
       if (this.state === 'destroyed') {
         source.dispose()
         return
@@ -163,6 +168,8 @@ export class NyxFission {
       this.events.emit('ready', undefined)
     } catch (error) {
       this.fail(asNyxError(error, this.stageFor(error)))
+    } finally {
+      if (this.loadController === loadController) this.loadController = undefined
     }
   }
 
@@ -211,6 +218,8 @@ export class NyxFission {
     this.failureError = error
     this.targetResolution?.cancel()
     this.targetResolution = undefined
+    this.loadController?.abort()
+    this.loadController = undefined
     this.runtime?.dispose()
     this.sampler?.dispose()
     this.source?.dispose()
