@@ -36,6 +36,8 @@ export class ThreeRuntime {
   private readonly points: Points
   private readonly renderer: WebGLRenderer
   private readonly observer: ResizeObserver
+  private positionAttribute: Float32BufferAttribute | undefined
+  private colorAttribute: Float32BufferAttribute | undefined
   private frameId: number | undefined
   private disposed = false
   private frameCallback: FrameCallback | undefined
@@ -65,18 +67,35 @@ export class ThreeRuntime {
     }
 
     this.resize(size.width, size.height)
-    this.observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      const width = entry?.contentRect.width ?? canvasSize(this.canvas).width
-      const height = entry?.contentRect.height ?? canvasSize(this.canvas).height
-      this.resize(width, height)
-    })
-    this.observer.observe(canvas)
+    let observer: ResizeObserver | undefined
+    try {
+      observer = new ResizeObserver((entries) => {
+        if (this.disposed) return
+        const entry = entries[0]
+        const width = entry?.contentRect.width ?? canvasSize(this.canvas).width
+        const height = entry?.contentRect.height ?? canvasSize(this.canvas).height
+        this.resize(width, height)
+      })
+      observer.observe(canvas)
+      this.observer = observer
+    } catch (cause) {
+      observer?.disconnect()
+      this.geometry.dispose()
+      this.material.dispose()
+      this.renderer.dispose()
+      throw new NyxError('Resize observer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+    }
   }
 
   setField(field: ParticleField): void {
-    this.geometry.setAttribute('position', new Float32BufferAttribute(field.positions, 3))
-    this.geometry.setAttribute('color', new Float32BufferAttribute(field.colors, 3))
+    const positionAttribute = new Float32BufferAttribute(field.positions, 3)
+    const colorAttribute = new Float32BufferAttribute(field.colors, 3)
+    if (this.positionAttribute) this.geometry.deleteAttribute('position')
+    if (this.colorAttribute) this.geometry.deleteAttribute('color')
+    this.geometry.setAttribute('position', positionAttribute)
+    this.geometry.setAttribute('color', colorAttribute)
+    this.positionAttribute = positionAttribute
+    this.colorAttribute = colorAttribute
   }
 
   start(frameCallback: FrameCallback): void {
@@ -85,6 +104,7 @@ export class ThreeRuntime {
     const frame = (time: number): void => {
       if (this.disposed) return
       this.frameCallback?.(time)
+      if (this.disposed) return
       this.renderer.render(this.scene, this.camera)
       this.frameId = requestAnimationFrame(frame)
     }
@@ -103,6 +123,7 @@ export class ThreeRuntime {
   }
 
   private resize(width: number, height: number): void {
+    if (this.disposed) return
     const safeWidth = Math.max(1, width)
     const safeHeight = Math.max(1, height)
     this.renderer.setSize(safeWidth, safeHeight, false)

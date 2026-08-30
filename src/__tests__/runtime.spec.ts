@@ -36,6 +36,7 @@ const three = vi.hoisted(() => {
 
   class BufferGeometry {
     setAttribute = vi.fn()
+    deleteAttribute = vi.fn()
     dispose = vi.fn()
   }
 
@@ -99,6 +100,7 @@ describe('ThreeRuntime', () => {
   let cancelFrame: ReturnType<typeof vi.fn>
   let resizeCallback: ResizeObserverCallback
   let observer: { observe: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }
+  let resizeObserver: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -107,10 +109,11 @@ describe('ThreeRuntime', () => {
     vi.stubGlobal('requestAnimationFrame', requestFrame)
     vi.stubGlobal('cancelAnimationFrame', cancelFrame)
     observer = { observe: vi.fn(), disconnect: vi.fn() }
-    vi.stubGlobal('ResizeObserver', vi.fn((callback: ResizeObserverCallback) => {
+    resizeObserver = vi.fn((callback: ResizeObserverCallback) => {
       resizeCallback = callback
       return observer
-    }))
+    })
+    vi.stubGlobal('ResizeObserver', resizeObserver)
   })
 
   it('creates and attaches the Three.js particle scene', () => {
@@ -148,6 +151,19 @@ describe('ThreeRuntime', () => {
     runtime.dispose()
   })
 
+  it('does not render or schedule another frame when the callback disposes', () => {
+    const renderer = vi.mocked(three.WebGLRenderer)
+    let runtime: ThreeRuntime
+    runtime = new ThreeRuntime(canvas(), field())
+    runtime.start(() => runtime.dispose())
+
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+    frame(123)
+
+    expect(renderer.mock.results[0].value.render).not.toHaveBeenCalled()
+    expect(requestFrame).toHaveBeenCalledOnce()
+  })
+
   it('resizes the renderer and camera from the content box', () => {
     const target = canvas()
     const runtime = new ThreeRuntime(target, field())
@@ -174,6 +190,70 @@ describe('ThreeRuntime', () => {
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('ignores queued resize callbacks after disposal', () => {
+    const runtime = new ThreeRuntime(canvas(), field())
+    const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
+    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+
+    runtime.dispose()
+    resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
+
+    expect(renderer.setSize).toHaveBeenCalledOnce()
+    expect(camera.updateProjectionMatrix).toHaveBeenCalledOnce()
+  })
+
+  it('cleans up resources when ResizeObserver construction fails', () => {
+    const cause = new Error('observer unavailable')
+    resizeObserver.mockImplementationOnce(() => {
+      throw cause
+    })
+
+    let thrown: unknown
+    try {
+      new ThreeRuntime(canvas(), field())
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(NyxError)
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', cause })
+  })
+
+  it('cleans up resources when ResizeObserver.observe fails', () => {
+    const cause = new Error('observe failed')
+    observer.observe.mockImplementationOnce(() => {
+      throw cause
+    })
+
+    let thrown: unknown
+    try {
+      new ThreeRuntime(canvas(), field())
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(NyxError)
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.dispose).toHaveBeenCalledOnce()
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', cause })
+  })
+
+  it('releases replaced buffer attributes when setting a new field', () => {
+    const runtime = new ThreeRuntime(canvas(), field())
+    const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
+
+    runtime.setField(field())
+
+    expect(geometry.deleteAttribute).toHaveBeenCalledWith('position')
+    expect(geometry.deleteAttribute).toHaveBeenCalledWith('color')
+    runtime.dispose()
   })
 
   it('maps renderer construction failures to RENDERER_UNAVAILABLE', () => {
