@@ -1,11 +1,12 @@
 /* global URL, document, HTMLCanvasElement, window, navigator, HTMLInputElement */
 
-import { createApp, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { createApp, computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxKit } from 'nyx-kit'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
 import 'nyx-kit/style.css'
 import { NyxFission, type NyxErrorEvent, type ThemeName } from '../src/index'
+import { buildQuickstart } from './quickstart'
 import './style.css'
 
 type SourceChoice = 'image' | 'video' | 'usermedia'
@@ -29,6 +30,7 @@ const Demo = defineComponent({
     const statusTheme = ref(NyxTheme.Info)
     const statusDetail = ref('Choose a source, then mount the field.')
     const copyLabel = ref('Copy example')
+    const quickstartCode = computed(() => buildQuickstart(sourceChoice.value, sourceUrl.value))
 
     const sourceOptions = [
       { value: 'image', label: 'Local image' },
@@ -123,10 +125,9 @@ const Demo = defineComponent({
     }
 
     const copyExample = async () => {
-      const example = `const particles = new NyxFission({ source: '${sourceUrl.value}' })\nconst target = document.querySelector<HTMLCanvasElement>('#particles-canvas')\nif (!target) throw new Error('Expected #particles-canvas to exist')\nparticles.mount(target)`
       try {
         if (!navigator.clipboard) throw new Error('Clipboard access is unavailable in this browser.')
-        await navigator.clipboard.writeText(example)
+        await navigator.clipboard.writeText(quickstartCode.value)
         copyLabel.value = 'Copied'
       } catch (error) {
         copyLabel.value = 'Copy failed'
@@ -163,6 +164,7 @@ const Demo = defineComponent({
       chooseSource,
       copyExample,
       copyLabel,
+      quickstartCode,
       mountChoice,
       mountOptions,
       NyxInputType,
@@ -215,16 +217,7 @@ const Demo = defineComponent({
         </div>
       </section>
 
-      <section class="quickstart" aria-labelledby="quickstart-title"><div><p class="eyebrow">02 / shortest path</p><h2 id="quickstart-title">One construct. One mount.</h2><p>NyxFission keeps the render loop and Three.js out of your application. Give it a source, then mount the canvas when you are ready.</p></div><div class="code-panel"><div class="code-bar"><span>quickstart.ts</span><NyxButton :variant="NyxVariant.Ghost" :size="NyxSize.Small" @click="copyExample">{{ copyLabel }}</NyxButton></div><pre><code><span class="code-keyword">import</span> { NyxFission } <span class="code-keyword">from</span> <span class="code-string">'nyx-fission'</span>
-
-<span class="code-keyword">const</span> particles = <span class="code-keyword">new</span> NyxFission({
-  source: <span class="code-string">'./portrait.jpg'</span>,
-  theme: <span class="code-string">'nyx'</span>
-})
-<span class="code-keyword">const</span> target = document.querySelector&lt;HTMLCanvasElement&gt;(<span class="code-string">'#particles-canvas'</span>)
-<span class="code-keyword">if</span> (!target) <span class="code-keyword">throw</span> <span class="code-keyword">new</span> Error(<span class="code-string">'Expected #particles-canvas to exist'</span>)
-particles.mount(target)
-<span class="code-keyword">await</span> particles.ready</code></pre></div></section>
+      <section class="quickstart" aria-labelledby="quickstart-title"><div><p class="eyebrow">02 / shortest path</p><h2 id="quickstart-title">One construct. One mount.</h2><p>NyxFission keeps the render loop and Three.js out of your application. Give it a source, then mount the canvas when you are ready.</p></div><div class="code-panel"><div class="code-bar"><span>quickstart.ts</span><NyxButton :variant="NyxVariant.Ghost" :size="NyxSize.Small" @click="copyExample">{{ copyLabel }}</NyxButton></div><pre><code>{{ quickstartCode }}</code></pre></div></section>
 
       <section class="reference" id="reference" aria-labelledby="reference-title"><div class="section-heading"><div><p class="eyebrow">03 / reference</p><h2 id="reference-title">The browser details matter.</h2></div><p class="section-note">A predictable effect starts with predictable inputs.</p></div><div class="reference-grid"><article><span class="ref-index">A</span><h3>Sources</h3><p>Images and videos use a URL. The source must be readable by the browser and video media should be served with CORS headers. Webcam is opt-in and uses <code>getUserMedia</code>.</p></article><article><span class="ref-index">B</span><h3>URLs</h3><p>NyxFission resolves relative media URLs against <code>document.baseURI</code>, so deployed subpaths and base URLs work as expected. Absolute URLs remain absolute.</p></article><article><span class="ref-index">C</span><h3>Lifecycle</h3><p>Listen with <code>on('ready', fn)</code> and <code>off('ready', fn)</code>. Await <code>ready</code> for a promise, and call <code>destroy()</code> to release the renderer.</p></article><article><span class="ref-index">D</span><h3>Webcam safety</h3><p>Camera access requires a secure context, HTTPS or localhost, plus user permission. The demo never requests it on load, and no video leaves your device.</p></article></div></section>
       <footer><span>NYXFISSION / MEDIA TO PARTICLES</span><span>Built for the browser, not the render loop.</span></footer>
