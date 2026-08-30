@@ -2,7 +2,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { NyxEventEmitter } from '../events'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -95,14 +94,16 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
   })
 
-  it('emits loading immediately before a delayed automatic target exists', async () => {
+  it('emits loading through a microtask before a delayed automatic target exists', async () => {
     const originalReadyState = document.readyState
     Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' })
-    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#late-particles' })
+    const loading = vi.fn()
+    particles.on('loading', loading)
 
-    expect(emit).toHaveBeenCalledWith('loading', undefined)
-    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    expect(loading).not.toHaveBeenCalled()
+    await Promise.resolve()
+    expect(loading).toHaveBeenCalledOnce()
 
     const target = canvas()
     target.id = 'late-particles'
@@ -110,20 +111,32 @@ describe('NyxFission orchestration', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'))
     await particles.ready
 
-    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
-    expect(emit.mock.calls.filter(([event]) => event === 'ready')).toHaveLength(1)
+    expect(loading).toHaveBeenCalledOnce()
     particles.destroy()
     Object.defineProperty(document, 'readyState', { configurable: true, value: originalReadyState })
   })
 
   it('emits loading once before automatic target failure', async () => {
-    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
+    const loading = vi.fn()
+    particles.on('loading', loading)
 
-    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    expect(loading).not.toHaveBeenCalled()
     await expect(particles.ready).rejects.toMatchObject({ code: 'INVALID_TARGET' })
-    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
-    expect(emit.mock.calls.filter(([event]) => event === 'error')).toHaveLength(1)
+    expect(loading).toHaveBeenCalledOnce()
+    particles.destroy()
+  })
+
+  it('delivers one loading event to listeners for an explicit mount', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    const loading = vi.fn()
+    particles.on('loading', loading)
+
+    particles.mount(canvas())
+    expect(loading).not.toHaveBeenCalled()
+    await particles.ready
+
+    expect(loading).toHaveBeenCalledOnce()
     particles.destroy()
   })
 
@@ -171,7 +184,7 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
     particles.destroy()
 
-    expect(events).toEqual(['ready', 'destroy'])
+    expect(events).toEqual(['loading', 'ready', 'destroy'])
   })
 
   it('emits one structured error and rejects ready with the original NyxError', async () => {
@@ -189,16 +202,17 @@ describe('NyxFission orchestration', () => {
   it('rejects later mounts with the original terminal failure', async () => {
     const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', 'source')
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
-    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
     const particles = new NyxFission({ source: './portrait.jpg' })
+    const loading = vi.fn()
     const ready = vi.fn()
+    particles.on('loading', loading)
     particles.on('ready', ready)
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
 
     expect(() => particles.mount(canvas())).toThrowError(failure)
-    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    expect(loading).toHaveBeenCalledOnce()
     expect(ready).not.toHaveBeenCalled()
     particles.destroy()
   })

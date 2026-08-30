@@ -1,4 +1,4 @@
-/* global HTMLCanvasElement */
+/* global HTMLCanvasElement, queueMicrotask */
 
 import { NyxEventEmitter } from './events'
 import { NyxError } from './errors'
@@ -30,6 +30,7 @@ export class NyxFission {
   private readonly events = new NyxEventEmitter<NyxEventMap>()
   private readonly resolveReady: () => void
   private readonly rejectReady: (_error: NyxError) => void
+  private readonly loadingReady: Promise<void>
   private state: State = 'created'
   private target: HTMLCanvasElement | undefined
   private targetResolution: TargetResolution | undefined
@@ -57,7 +58,12 @@ export class NyxFission {
     })
     this.resolveReady = resolveReady
     this.rejectReady = rejectReady
-    this.events.emit('loading', undefined)
+    this.loadingReady = new Promise<void>((resolve) => {
+      queueMicrotask(() => {
+        if (this.state !== 'destroyed') this.events.emit('loading', undefined)
+        resolve()
+      })
+    })
 
     if (this.config.querySelector !== undefined) {
       const targetResolution = resolveCanvas(this.config)
@@ -119,8 +125,11 @@ export class NyxFission {
     if (this.state === 'destroyed' || this.state === 'failed') return
     if (this.target !== undefined) return
     this.target = canvas
-    this.state = 'loading'
-    void this.load(canvas)
+    void this.loadingReady.then(() => {
+      if (this.state === 'destroyed' || this.state === 'failed') return
+      this.state = 'loading'
+      void this.load(canvas)
+    })
   }
 
   private async load(canvas: HTMLCanvasElement): Promise<void> {
