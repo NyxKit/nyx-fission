@@ -1,7 +1,8 @@
-/* global HTMLCanvasElement, ImageData, document */
+/* global Event, HTMLCanvasElement, ImageData, document */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
+import { NyxEventEmitter } from '../events'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -69,6 +70,7 @@ describe('NyxFission orchestration', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     document.body.replaceChildren()
   })
 
@@ -90,6 +92,38 @@ describe('NyxFission orchestration', () => {
 
     await expect(particles.ready).resolves.toBeUndefined()
     expect(mocks.loadMediaSource).toHaveBeenCalledWith('./portrait.jpg', 'image')
+    particles.destroy()
+  })
+
+  it('emits loading immediately before a delayed automatic target exists', async () => {
+    const originalReadyState = document.readyState
+    Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' })
+    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
+    const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#late-particles' })
+
+    expect(emit).toHaveBeenCalledWith('loading', undefined)
+    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+
+    const target = canvas()
+    target.id = 'late-particles'
+    document.body.append(target)
+    document.dispatchEvent(new Event('DOMContentLoaded'))
+    await particles.ready
+
+    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    expect(emit.mock.calls.filter(([event]) => event === 'ready')).toHaveLength(1)
+    particles.destroy()
+    Object.defineProperty(document, 'readyState', { configurable: true, value: originalReadyState })
+  })
+
+  it('emits loading once before automatic target failure', async () => {
+    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
+    const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
+
+    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    await expect(particles.ready).rejects.toMatchObject({ code: 'INVALID_TARGET' })
+    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
+    expect(emit.mock.calls.filter(([event]) => event === 'error')).toHaveLength(1)
     particles.destroy()
   })
 
@@ -137,7 +171,7 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
     particles.destroy()
 
-    expect(events).toEqual(['loading', 'ready', 'destroy'])
+    expect(events).toEqual(['ready', 'destroy'])
   })
 
   it('emits one structured error and rejects ready with the original NyxError', async () => {
@@ -155,17 +189,16 @@ describe('NyxFission orchestration', () => {
   it('rejects later mounts with the original terminal failure', async () => {
     const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', 'source')
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
+    const emit = vi.spyOn(NyxEventEmitter.prototype, 'emit')
     const particles = new NyxFission({ source: './portrait.jpg' })
-    const loading = vi.fn()
     const ready = vi.fn()
-    particles.on('loading', loading)
     particles.on('ready', ready)
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
 
     expect(() => particles.mount(canvas())).toThrowError(failure)
-    expect(loading).toHaveBeenCalledOnce()
+    expect(emit.mock.calls.filter(([event]) => event === 'loading')).toHaveLength(1)
     expect(ready).not.toHaveBeenCalled()
     particles.destroy()
   })

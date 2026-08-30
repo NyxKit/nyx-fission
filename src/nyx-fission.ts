@@ -57,6 +57,7 @@ export class NyxFission {
     })
     this.resolveReady = resolveReady
     this.rejectReady = rejectReady
+    this.events.emit('loading', undefined)
 
     if (this.config.querySelector !== undefined) {
       const targetResolution = resolveCanvas(this.config)
@@ -119,7 +120,6 @@ export class NyxFission {
     if (this.target !== undefined) return
     this.target = canvas
     this.state = 'loading'
-    this.events.emit('loading', undefined)
     void this.load(canvas)
   }
 
