@@ -155,6 +155,9 @@ describe('ThreeRuntime', () => {
   it('schedules the internal loop and delegates each frame callback', () => {
     const callback = vi.fn()
     const runtime = new ThreeRuntime(canvas(), field())
+    const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
+    const scene = vi.mocked(three.Scene).mock.results[0].value
+    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
 
     runtime.start(callback)
 
@@ -163,6 +166,7 @@ describe('ThreeRuntime', () => {
     frame(123)
 
     expect(callback).toHaveBeenCalledWith(123)
+    expect(renderer.render).toHaveBeenCalledWith(scene, camera)
     expect(requestFrame).toHaveBeenCalledTimes(2)
     runtime.dispose()
   })
@@ -228,6 +232,9 @@ describe('ThreeRuntime', () => {
     const runtime = new ThreeRuntime(canvas(), field())
     const scene = vi.mocked(three.Scene).mock.results[0].value
     const points = vi.mocked(three.Points).mock.results[0].value
+    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    const material = vi.mocked(three.ShaderMaterial).mock.results[0].value
+    const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     runtime.start(vi.fn())
 
     runtime.dispose()
@@ -241,11 +248,20 @@ describe('ThreeRuntime', () => {
     expect((runtime as unknown as { frameCallback?: unknown }).frameCallback).toBeUndefined()
     expect(scene.remove).toHaveBeenCalledWith(points)
     expect(runtime).toMatchObject({
+      canvas: undefined,
+      scene: undefined,
+      camera: undefined,
+      material: undefined,
+      renderer: undefined,
+      observer: undefined,
       positionAttribute: undefined,
       colorAttribute: undefined,
       points: undefined,
       geometry: undefined,
     })
+    expect(camera.updateProjectionMatrix).toHaveBeenCalled()
+    expect(material.dispose).toHaveBeenCalledOnce()
+    expect(renderer.dispose).toHaveBeenCalledOnce()
   })
 
   it('ignores queued resize callbacks after disposal', () => {

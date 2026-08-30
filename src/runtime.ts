@@ -29,13 +29,14 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
 }
 
 export class ThreeRuntime {
-  private readonly scene: Scene
-  private readonly camera: OrthographicCamera
+  private canvas: HTMLCanvasElement | undefined
+  private scene: Scene | undefined
+  private camera: OrthographicCamera | undefined
   private geometry: BufferGeometry | undefined
-  private readonly material: ShaderMaterial
+  private material: ShaderMaterial | undefined
   private points: Points | undefined
-  private readonly renderer: WebGLRenderer
-  private readonly observer: ResizeObserver
+  private renderer: WebGLRenderer | undefined
+  private observer: ResizeObserver | undefined
   private positionAttribute: Float32BufferAttribute | undefined
   private colorAttribute: Float32BufferAttribute | undefined
   private frameId: number | undefined
@@ -43,7 +44,8 @@ export class ThreeRuntime {
   private disposed = false
   private frameCallback: FrameCallback | undefined
 
-  constructor(private readonly canvas: HTMLCanvasElement, initialField: ParticleField) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField) {
+    this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
     this.camera = new OrthographicCamera(-size.width / size.height / 2, size.width / size.height / 2, 0.5, -0.5, CAMERA_NEAR, CAMERA_FAR)
@@ -63,7 +65,7 @@ export class ThreeRuntime {
       this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true })
     } catch (cause) {
       this.geometry?.dispose()
-      this.material.dispose()
+      this.material?.dispose()
       throw new NyxError('WebGL renderer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
 
@@ -72,16 +74,17 @@ export class ThreeRuntime {
       this.resize(size.width, size.height)
     } catch (cause) {
       this.geometry?.dispose()
-      this.material.dispose()
-      this.renderer.dispose()
+      this.material?.dispose()
+      this.renderer?.dispose()
       throw new NyxError('Initial renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
     try {
       observer = new ResizeObserver((entries) => {
         if (this.disposed) return
         const entry = entries[0]
-        const width = entry?.contentRect.width ?? canvasSize(this.canvas).width
-        const height = entry?.contentRect.height ?? canvasSize(this.canvas).height
+        const currentCanvas = this.canvas
+        const width = entry?.contentRect.width ?? (currentCanvas ? canvasSize(currentCanvas).width : 1)
+        const height = entry?.contentRect.height ?? (currentCanvas ? canvasSize(currentCanvas).height : 1)
         try {
           this.resize(width, height)
         } catch (cause) {
@@ -95,8 +98,8 @@ export class ThreeRuntime {
     } catch (cause) {
       observer?.disconnect()
       this.geometry?.dispose()
-      this.material.dispose()
-      this.renderer.dispose()
+      this.material?.dispose()
+      this.renderer?.dispose()
       throw new NyxError('Resize observer setup failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
     }
   }
@@ -143,7 +146,11 @@ export class ThreeRuntime {
       try {
         this.frameCallback?.(time)
         if (this.disposed || !this.running) return
-        this.renderer.render(this.scene, this.camera)
+        const renderer = this.renderer
+        const scene = this.scene
+        const camera = this.camera
+        if (!renderer || !scene || !camera) throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+        renderer.render(scene, camera)
         if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
       } catch (error) {
         this.dispose()
@@ -158,26 +165,46 @@ export class ThreeRuntime {
     this.disposed = true
     this.running = false
     this.frameCallback = undefined
-    if (this.frameId !== undefined) cancelAnimationFrame(this.frameId)
+    const canvas = this.canvas
+    const scene = this.scene
+    const camera = this.camera
+    const geometry = this.geometry
+    const material = this.material
+    const points = this.points
+    const renderer = this.renderer
+    const observer = this.observer
+    const frameId = this.frameId
+    if (frameId !== undefined) cancelAnimationFrame(frameId)
     this.frameId = undefined
-    this.observer.disconnect()
-    if (this.points) this.scene.remove(this.points)
-    this.geometry?.dispose()
-    this.material.dispose()
-    this.renderer.dispose()
+    observer?.disconnect()
+    if (scene && points) scene.remove(points)
+    geometry?.dispose()
+    material?.dispose()
+    renderer?.dispose()
+    void canvas
+    void camera
     this.positionAttribute = undefined
     this.colorAttribute = undefined
     this.points = undefined
     this.geometry = undefined
+    this.canvas = undefined
+    this.scene = undefined
+    this.camera = undefined
+    this.material = undefined
+    this.renderer = undefined
+    this.observer = undefined
   }
 
   private resize(width: number, height: number): void {
     if (this.disposed) return
     const safeWidth = Math.max(1, width)
     const safeHeight = Math.max(1, height)
-    this.renderer.setSize(safeWidth, safeHeight, false)
-    this.camera.left = -safeWidth / safeHeight / 2
-    this.camera.right = safeWidth / safeHeight / 2
-    this.camera.updateProjectionMatrix()
+    const renderer = this.renderer
+    const camera = this.camera
+    if (!renderer || !camera) return
+    renderer.setSize(safeWidth, safeHeight, false)
+    camera.left = -safeWidth / safeHeight / 2
+    camera.right = safeWidth / safeHeight / 2
+    camera.updateProjectionMatrix()
   }
 }
