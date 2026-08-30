@@ -13,7 +13,13 @@ describe('buildQuickstart', () => {
     const url = 'https://example.test/media/quote\n".webm'
     const example = buildQuickstart('video', url)
 
-    expect(example).toContain(`source: ${JSON.stringify(url)}`)
+    expect(example).toContain(`type: 'video', source: ${JSON.stringify(url)}`)
     expect(example).toContain("document.querySelector<HTMLCanvasElement>('#particles-canvas')")
+  })
+
+  it('includes an explicit image type for the SVG default source', () => {
+    const example = buildQuickstart('image', '/fixtures/nyx-orbit.svg')
+
+    expect(example).toContain("type: 'image', source: \"/fixtures/nyx-orbit.svg\"")
   })
 })

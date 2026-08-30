@@ -3,7 +3,7 @@ export type QuickstartSource = 'image' | 'video' | 'usermedia'
 export function buildQuickstart(source: QuickstartSource, sourceUrl: string): string {
   const sourceConfig = source === 'usermedia'
     ? "type: 'usermedia'"
-    : `source: ${JSON.stringify(sourceUrl)}`
+    : `type: '${source}', source: ${JSON.stringify(sourceUrl)}`
 
   return `import { NyxFission } from 'nyx-fission'
 
