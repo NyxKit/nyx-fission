@@ -7,9 +7,12 @@ import { FrameSampler } from '../frame-sampler'
 describe('FrameSampler', () => {
   it('draws the current source and returns the complete image data', () => {
     const imageData = { data: new Uint8ClampedArray(8), width: 2, height: 1 } as ImageData
+    const nextImageData = { data: new Uint8ClampedArray(8), width: 2, height: 1 } as ImageData
     const context = {
       drawImage: vi.fn(),
-      getImageData: vi.fn(() => imageData),
+      getImageData: vi.fn()
+        .mockReturnValueOnce(imageData)
+        .mockReturnValueOnce(nextImageData),
     }
     const canvas = {
       width: 0,
@@ -31,11 +34,12 @@ describe('FrameSampler', () => {
     const sampler = new FrameSampler(source)
 
     expect(sampler.sample()).toBe(imageData)
-    expect(sampler.sample()).toBe(imageData)
+    expect(sampler.sample()).toBe(nextImageData)
     expect(canvas.width).toBe(2)
     expect(canvas.height).toBe(1)
     expect(context.drawImage).toHaveBeenCalledTimes(2)
     expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 2, 1)
+    expect(context.getImageData).toHaveBeenCalledTimes(2)
     expect(context.getImageData).toHaveBeenCalledWith(0, 0, 2, 1)
     expect(document.createElement).toHaveBeenCalledOnce()
   })
@@ -163,5 +167,35 @@ describe('FrameSampler', () => {
     expect(canvas.height).toBe(720)
     expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 360, 720)
     expect(context.getImageData).toHaveBeenCalledWith(0, 0, 360, 720)
+  })
+
+  it('keeps extreme aspect ratios at least one pixel wide and within the cap', () => {
+    const imageData = { data: new Uint8ClampedArray(720 * 4), width: 1, height: 720 } as ImageData
+    const context = {
+      drawImage: vi.fn(),
+      getImageData: vi.fn(() => imageData),
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+    }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      canvas as unknown as HTMLElement,
+    )
+    const source = {
+      kind: 'video' as const,
+      element: {} as HTMLVideoElement,
+      width: 1,
+      height: 100000,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    new FrameSampler(source).sample()
+
+    expect(canvas.width).toBe(1)
+    expect(canvas.height).toBe(720)
+    expect(Math.max(canvas.width, canvas.height)).toBeLessThanOrEqual(720)
   })
 })

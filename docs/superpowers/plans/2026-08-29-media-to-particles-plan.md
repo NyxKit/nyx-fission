@@ -355,11 +355,12 @@ element and stream for disposal.
 
 - [ ] **Step 4: Implement the frame sampler**
 
-Create one offscreen canvas per sampler, resize it to the loaded source
-dimensions, draw the current frame with `drawImage`, and return
-`getImageData(0, 0, width, height)`. Catch `SecurityError` and map it to
-`MEDIA_CORS_FAILED`. Avoid creating a new canvas or `ImageData` buffer for
-every frame where browser APIs allow reuse.
+Create one offscreen canvas per sampler, resize it to proportional working
+dimensions capped at 720px on the dominant axis, draw the current frame with
+`drawImage`, and return `getImageData(0, 0, width, height)`. Catch
+`SecurityError` and map it to `MEDIA_CORS_FAILED`. Reuse the working canvas between frames. The standard
+`getImageData()` API has no destination `ImageData` parameter, so a bounded
+`ImageData` allocation per sampled dynamic frame is expected.
 
 - [ ] **Step 5: Run tests and type-check**
 

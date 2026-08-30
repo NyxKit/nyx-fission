@@ -6,6 +6,19 @@ import type { LoadedSource } from './media/source'
 // Keep pixel and downstream particle allocations bounded for high-resolution media.
 const MAX_WORKING_DIMENSION = 720
 
+function workingDimensions(width: number, height: number): [number, number] {
+  const sourceMax = Math.max(width, height)
+  if (sourceMax <= MAX_WORKING_DIMENSION) {
+    return [Math.max(1, width), Math.max(1, height)]
+  }
+
+  const scale = MAX_WORKING_DIMENSION / sourceMax
+  if (width >= height) {
+    return [MAX_WORKING_DIMENSION, Math.max(1, Math.round(height * scale))]
+  }
+  return [Math.max(1, Math.round(width * scale)), MAX_WORKING_DIMENSION]
+}
+
 export class FrameSampler {
   private readonly canvas: HTMLCanvasElement
   private readonly context: CanvasRenderingContext2D
@@ -38,12 +51,7 @@ export class FrameSampler {
       )
     }
 
-    const scale = Math.min(
-      1,
-      MAX_WORKING_DIMENSION / Math.max(this.source.width, this.source.height),
-    )
-    const width = Math.max(1, Math.round(this.source.width * scale))
-    const height = Math.max(1, Math.round(this.source.height * scale))
+    const [width, height] = workingDimensions(this.source.width, this.source.height)
     if (this.width !== width || this.height !== height) {
       this.width = width
       this.height = height
@@ -59,6 +67,7 @@ export class FrameSampler {
         this.width,
         this.height,
       )
+      // getImageData() has no destination-buffer argument; bounded allocation per dynamic frame is required.
       return this.context.getImageData(0, 0, this.width, this.height)
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'SecurityError') {
