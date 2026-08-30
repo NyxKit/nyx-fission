@@ -36,12 +36,16 @@ const three = vi.hoisted(() => {
 
   class BufferGeometry {
     setAttribute = vi.fn()
-    deleteAttribute = vi.fn()
     dispose = vi.fn()
   }
 
   class Float32BufferAttribute {
-    constructor(_array: Float32Array, _itemSize: number) {}
+    array: Float32Array
+    needsUpdate = false
+
+    constructor(array: Float32Array, _itemSize: number) {
+      this.array = array
+    }
   }
 
   class ShaderMaterial {
@@ -81,10 +85,10 @@ const three = vi.hoisted(() => {
 
 vi.mock('three', () => three)
 
-function field(): ParticleField {
+function field(pointCount = 1): ParticleField {
   return {
-    positions: new Float32Array([0, 0, 0]),
-    colors: new Float32Array([1, 0, 0]),
+    positions: new Float32Array(pointCount * 3),
+    colors: new Float32Array(pointCount * 3).fill(1),
   } as ParticleField
 }
 
@@ -245,14 +249,38 @@ describe('ThreeRuntime', () => {
     expect(thrown).toMatchObject({ code: 'RENDERER_UNAVAILABLE', cause })
   })
 
-  it('releases replaced buffer attributes when setting a new field', () => {
+  it('updates existing buffer attributes in place when field sizes match', () => {
+    const runtime = new ThreeRuntime(canvas(), field())
+    const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
+    const attributes = vi.mocked(three.Float32BufferAttribute).mock.results
+    const initialPosition = attributes[0].value
+    const initialColor = attributes[1].value
+    const nextField = field()
+    nextField.positions[0] = 0.5
+    nextField.colors[0] = 0.25
+
+    runtime.setField(nextField)
+
+    expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
+    expect(geometry.dispose).not.toHaveBeenCalled()
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(2)
+    expect(initialPosition.array[0]).toBe(0.5)
+    expect(initialPosition.needsUpdate).toBe(true)
+    expect(initialColor.array[0]).toBe(0.25)
+    expect(initialColor.needsUpdate).toBe(true)
+    runtime.dispose()
+  })
+
+  it('replaces and disposes geometry when field sizes change', () => {
     const runtime = new ThreeRuntime(canvas(), field())
     const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
 
-    runtime.setField(field())
+    runtime.setField(field(2))
 
-    expect(geometry.deleteAttribute).toHaveBeenCalledWith('position')
-    expect(geometry.deleteAttribute).toHaveBeenCalledWith('color')
+    expect(geometry.dispose).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(three.Points)).toHaveBeenCalledOnce()
+    expect(vi.mocked(three.ShaderMaterial)).toHaveBeenCalledOnce()
     runtime.dispose()
   })
 

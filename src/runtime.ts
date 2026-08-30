@@ -31,7 +31,7 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
 export class ThreeRuntime {
   private readonly scene: Scene
   private readonly camera: OrthographicCamera
-  private readonly geometry: BufferGeometry
+  private geometry: BufferGeometry
   private readonly material: ShaderMaterial
   private readonly points: Points
   private readonly renderer: WebGLRenderer
@@ -88,10 +88,21 @@ export class ThreeRuntime {
   }
 
   setField(field: ParticleField): void {
+    if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length) {
+      this.positionAttribute.array.set(field.positions)
+      this.positionAttribute.needsUpdate = true
+      this.colorAttribute.array.set(field.colors)
+      this.colorAttribute.needsUpdate = true
+      return
+    }
+
     const positionAttribute = new Float32BufferAttribute(field.positions, 3)
     const colorAttribute = new Float32BufferAttribute(field.colors, 3)
-    if (this.positionAttribute) this.geometry.deleteAttribute('position')
-    if (this.colorAttribute) this.geometry.deleteAttribute('color')
+    if (this.positionAttribute || this.colorAttribute) {
+      this.geometry.dispose()
+      this.geometry = new BufferGeometry()
+      this.points.geometry = this.geometry
+    }
     this.geometry.setAttribute('position', positionAttribute)
     this.geometry.setAttribute('color', colorAttribute)
     this.positionAttribute = positionAttribute
