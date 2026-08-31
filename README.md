@@ -47,6 +47,10 @@ const particles = new NyxFission({
 
 `mount()` is single-use per instance. When replacing a source, theme, or target, call `destroy()` and create a new instance.
 
+### Particle depth
+
+`depth` defaults to `0.35` and accepts any finite signed number. Each particle's normalized luminance is mapped to depth with `z = luminance * depth`; `depth: 0` produces a flat plane. Depth is fixed when an instance is created, so destroy and recreate the instance to change it. The render loop and performance controls remain internal to NyxFission.
+
 ## Events and lifecycle
 
 Use `ready` as a promise or subscribe to lifecycle events. `on` and `off` use the same listener reference.

@@ -65,6 +65,7 @@ describe('NyxFission orchestration', () => {
       positions: new Float32Array(_frame.width * _frame.height * 3),
       colors: new Float32Array(_frame.width * _frame.height * 3),
     }))
+    mocks.updateParticleField.mockImplementation(() => undefined)
     mocks.loadMediaSource.mockResolvedValue({
       kind: 'image',
       width: 2,
@@ -346,25 +347,37 @@ describe('NyxFission orchestration', () => {
     )
   })
 
-  it('updates the existing field from each runtime frame', async () => {
-    mocks.loadMediaSource.mockResolvedValueOnce({
-      kind: 'video',
-      width: 2,
-      height: 2,
-      getFrameSource: vi.fn(),
-      dispose: vi.fn(),
+  it.each(['video', 'usermedia'] as const)('updates luminance on later %s frames without replacing the field or runtime', async (kind) => {
+    mocks.loadMediaSource.mockResolvedValueOnce({ kind, width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() })
+    const firstFrame = imageData()
+    firstFrame.data[0] = 32
+    const laterFrame = imageData()
+    laterFrame.data[0] = 224
+    mocks.sample.mockReset()
+    mocks.sample.mockReturnValueOnce(firstFrame).mockReturnValueOnce(laterFrame)
+    mocks.createParticleField.mockImplementation((_frame: ImageData) => ({
+      positions: new Float32Array([1, 2, 3]),
+      colors: new Float32Array(3),
+      luminance: new Float32Array([_frame.data[0] / 255]),
+    }))
+    mocks.updateParticleField.mockImplementation((field: { luminance: Float32Array }, frame: ImageData) => {
+      field.luminance[0] = frame.data[0] / 255
     })
     const particles = new NyxFission({ source: './portrait.jpg' })
     particles.mount(canvas())
     await particles.ready
     const runtime = mocks.runtimeInstances[0]
-    const initialCalls = mocks.sample.mock.calls.length
+    const field = mocks.createParticleField.mock.results[0].value as { positions: Float32Array; luminance: Float32Array }
+    const initialPositions = field.positions.slice()
 
     const frameCallback = runtime.start.mock.calls[0][0] as () => void
     frameCallback()
 
-    expect(mocks.sample).toHaveBeenCalledTimes(initialCalls + 1)
-    expect(mocks.updateParticleField).toHaveBeenCalled()
+    expect(field.luminance[0]).toBeCloseTo(224 / 255)
+    expect(field.positions).toEqual(initialPositions)
+    expect(mocks.createParticleField).toHaveBeenCalledOnce()
+    expect(mocks.runtimeInstances).toHaveLength(1)
+    expect(runtime.setField).toHaveBeenCalledWith(field)
     particles.destroy()
   })
 

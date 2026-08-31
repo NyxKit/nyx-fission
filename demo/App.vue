@@ -25,6 +25,7 @@ const videoUrl = new URL('./fixtures/nyx-orbit.webm', document.baseURI).href
 const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)
+const depth = ref(0.35)
 const mountChoice = ref<MountChoice>(MountChoice.Explicit)
 const canvas = ref<HTMLCanvasElement | null>(null)
 const instance = ref<NyxFission | null>(null)
@@ -32,7 +33,7 @@ const status = ref<Status>('Waiting for a source')
 const statusTheme = ref(NyxTheme.Info)
 const statusDetail = ref('Choose a source, then mount the field.')
 const copyLabel = ref('Copy example')
-const quickstartCode = computed(() => buildQuickstart(sourceChoice.value, sourceUrl.value))
+const quickstartCode = computed(() => buildQuickstart(sourceChoice.value, sourceUrl.value, depth.value))
 
 const sourceOptions = [
   { value: SourceChoice.Image, label: 'Local image' },
@@ -57,6 +58,11 @@ const setStatus = (nextStatus: Status, detail: string, nextTheme: NyxTheme) => {
 
 const handleError = ({ error, stage }: NyxErrorEvent) => {
   setStatus('Needs attention', `${stage}: ${error.message}`, NyxTheme.Danger)
+}
+
+const updateDepth = (value: string) => {
+  const nextDepth = Number(value)
+  if (Number.isFinite(nextDepth)) depth.value = nextDepth
 }
 
 const getParticleCanvas = (): HTMLCanvasElement => {
@@ -86,6 +92,7 @@ const createInstance = async () => {
     const config = {
       type: sourceChoice.value,
       theme: theme.value,
+      depth: depth.value,
       ...(sourceChoice.value === SourceChoice.Usermedia
         ? {}
         : { source: new URL(sourceUrl.value, document.baseURI).href }),
@@ -94,7 +101,7 @@ const createInstance = async () => {
     const nextInstance = new NyxFission(config)
     instance.value = nextInstance
     nextInstance.on(NyxEventName.Loading, () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
-    nextInstance.on(NyxEventName.Ready, () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
+    nextInstance.on(NyxEventName.Ready, () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value} at depth ${depth.value.toFixed(2)}.`, NyxTheme.Success))
     nextInstance.on(NyxEventName.Error, handleError)
     nextInstance.on(NyxEventName.Destroy, () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
 
@@ -157,11 +164,16 @@ onMounted(async () => {
   labelNyxControls()
   void createInstance()
 })
-watch([theme, mountChoice], () => { void createInstance() })
+watch([theme, mountChoice, depth], () => { void createInstance() })
 onBeforeUnmount(destroyInstance)
 </script>
 
 <template>
+  <div class="depth-control">
+    <label class="field-label" for="depth-control">Particle depth: {{ depth.toFixed(2) }}</label>
+    <NyxInput id="depth-control" :model-value="String(depth)" @update:model-value="updateDepth" :type="NyxInputType.Number" :min="-1" :max="1" :step="0.05" :size="NyxSize.Small" />
+    <span class="help-text">Signed depth maps luminance toward or away from the camera.</span>
+  </div>
   <main class="site-shell">
     <header class="topbar">
       <a class="wordmark" href="#top" aria-label="NyxFission home"><span class="wordmark-mark">N</span><span>nyx<span class="wordmark-muted">fission</span></span></a>
