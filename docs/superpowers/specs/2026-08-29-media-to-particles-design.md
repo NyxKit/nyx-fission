@@ -65,6 +65,8 @@ The initial configuration is intentionally small:
 - `theme`: a named theme. Initial themes are `grayscale`, `discodip`,
   `pastel`, and `nyx`.
 - `querySelector`: optional CSS selector for automatic mounting.
+- `depth`: optional signed particle depth amplitude. It defaults to `0.35`;
+  `0` produces a flat plane and negative values reverse the relief direction.
 
 Detailed custom controls for particle colors, spacing, size, density, and
 related appearance settings are deferred until the core renderer is proven.
@@ -176,3 +178,33 @@ base-path deployment scenario.
 - Existing `HTMLImageElement`, `HTMLVideoElement`, or `MediaStream` inputs.
 - Arbitrary custom theme palettes and detailed particle appearance overrides.
 - Audio-reactive behavior from the audio-visualiser project.
+
+## Signed Particle Depth
+
+Add an optional numeric `depth` configuration value. It represents the maximum
+signed Z amplitude of the particle field, with an omitted value defaulting to a
+subtle positive `0.35`:
+
+```ts
+z = luminance * depth
+```
+
+This gives the following contract:
+
+- `depth: 0` produces a flat plane.
+- Positive depth maps normalized luminance from `0` to positive depth.
+- Negative depth maps normalized luminance from `0` to negative depth,
+  reversing the relief direction.
+- Non-finite values are rejected as `INVALID_CONFIG`.
+
+The particle field creation and update paths receive the configured depth so
+image, video, and webcam frames use identical displacement semantics. The
+runtime uses perspective framing to make Z displacement visually apparent
+while preserving the existing aspect-fit composition. Changing depth follows
+the existing instance lifecycle: consumers destroy and recreate an instance
+rather than manually changing renderer state.
+
+The demo exposes a simple signed depth control and displays the active value in
+its integration example. It does not expose render-loop or performance
+controls. Tests cover default, zero, positive, negative, invalid, and dynamic
+frame-update behavior, plus perspective framing.
