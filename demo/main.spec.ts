@@ -14,4 +14,16 @@ describe('compiled demo entry', () => {
     expect(main).not.toContain('template: `')
     expect(app).toContain('<canvas id="particles-canvas"')
   })
+
+  it('keeps Vue ambient types out of the library declaration project', () => {
+    const rootViteEnv = readFileSync(resolve(demoDirectory, '../src/vite-env.d.ts'), 'utf8')
+    const demoViteEnv = readFileSync(resolve(demoDirectory, 'vite-env.d.ts'), 'utf8')
+    const typesConfig = readFileSync(resolve(demoDirectory, '../tsconfig.types.json'), 'utf8')
+
+    expect(rootViteEnv).not.toContain("from 'vue'")
+    expect(demoViteEnv).toContain("declare module '*.vue'")
+    expect(typesConfig).toContain('src/vite-env.d.ts')
+    expect(typesConfig).not.toContain("from 'vue'")
+    expect(typesConfig).toContain('src/index.ts')
+  })
 })

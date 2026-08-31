@@ -25,6 +25,7 @@
     "lint": "eslint .",
     "dev": "vite --config vite.config.ts --mode demo",
     "build:demo": "vite build --config vite.config.ts --mode demo",
+    "test:demo": "pnpm build:demo && node demo/smoke.mjs",
     "prepack": "run-s build declarations"
   },
   "peerDependencies": {
