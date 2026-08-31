@@ -197,12 +197,15 @@ This gives the following contract:
   reversing the relief direction.
 - Non-finite values are rejected as `INVALID_CONFIG`.
 
-The particle field creation and update paths receive the configured depth so
-image, video, and webcam frames use identical displacement semantics. The
-runtime uses perspective framing to make Z displacement visually apparent
-while preserving the existing aspect-fit composition. Changing depth follows
-the existing instance lifecycle: consumers destroy and recreate an instance
-rather than manually changing renderer state.
+The particle field stores normalized luminance as a GPU attribute, while the
+runtime passes the configured depth to the vertex shader as an initialization
+uniform. The shader applies `z = luminance * depth`, so image, video, and
+webcam frames use identical displacement semantics without recalculating Z on
+every CPU-side frame update. The runtime uses perspective framing to make Z
+displacement visually apparent while preserving the existing aspect-fit
+composition. Changing depth follows the existing instance lifecycle:
+consumers destroy and recreate an instance rather than manually changing
+renderer state or exposing a runtime depth setter.
 
 The demo exposes a simple signed depth control and displays the active value in
 its integration example. It does not expose render-loop or performance
