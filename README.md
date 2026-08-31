@@ -75,7 +75,7 @@ The event names are `loading`, `ready`, `error`, and `destroy`. A failed `ready`
 - `video`: a video URL that the browser can load and sample.
 - `usermedia`: an opt-in webcam stream, configured with `{ type: MediaType.Usermedia }`.
 
-Available themes are `nyx`, `grayscale`, `discodip`, and `pastel`. The `nyx` theme reads Nyx semantic CSS colors when available and falls back to the package palette.
+Available themes are `nyx`, `grayscale`, `discodip`, and `pastel`. The `nyx` theme reads the `primary`, `secondary`, `tertiary`, and `neutral` Nyx CSS color tokens and falls back to the package palette when `tertiary` or `neutral` are not supplied by a consumer stylesheet.
 
 Relative URLs resolve against `document.baseURI`, not the JavaScript bundle URL. This keeps sources correct when the application is hosted under a base path or nested deployment URL.
 

@@ -134,8 +134,8 @@ handles and releases them from `destroy()`.
 ## Themes
 
 `grayscale`, `discodip`, and `pastel` carry the existing audio-visualiser
-palette concepts. `nyx` uses semantic Nyx color tokens: primary, secondary,
-success, warning, danger, and info.
+palette concepts. `nyx` uses four semantic Nyx particle color tokens: primary,
+secondary, tertiary, and neutral.
 
 The `nyx` theme reads corresponding CSS custom properties from the document so
 consumer overrides are respected. If `nyx-kit` styles are not installed or a
