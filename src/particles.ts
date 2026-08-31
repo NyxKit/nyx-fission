@@ -5,6 +5,7 @@ import { NyxError } from './errors'
 import { NyxErrorStage } from './types'
 
 const SAMPLE_STEP = 3
+const DEPTH_UPDATE_THRESHOLD = 0.03
 
 function validateTheme(theme: readonly Color[]): void {
   if (!theme || theme.length === 0 || theme.some((color) => !Array.isArray(color) || color.length !== 3 || color.some((channel) => !Number.isFinite(channel) || channel < 0 || channel > 1))) {
@@ -58,7 +59,9 @@ export class ParticleField {
       const green = imageData.data[pixelIndex + 1]
       const blue = imageData.data[pixelIndex + 2]
       const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
-      this.luminance[index] = luminance
+      if (Math.abs(luminance - this.luminance[index]) >= DEPTH_UPDATE_THRESHOLD) {
+        this.luminance[index] = luminance
+      }
       const color = this.theme[Math.min(this.theme.length - 1, Math.floor(luminance * this.theme.length))]
       this.colors.set(color, index * 3)
     })

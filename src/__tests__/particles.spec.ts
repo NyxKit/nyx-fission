@@ -23,6 +23,37 @@ function sampledImageData(colors: number[][]): ImageData {
 }
 
 describe('particle fields', () => {
+  it('keeps depth stable for a luminance change below the threshold', () => {
+    const field = createParticleField(sampledImageData([[128, 128, 128]]), theme)
+    const initialLuminance = field.luminance[0]
+
+    updateParticleField(field, sampledImageData([[125, 125, 125]]))
+
+    expect(field.luminance[0]).toBe(initialLuminance)
+  })
+
+  it('accepts a luminance change at the threshold', () => {
+    const field = createParticleField(sampledImageData([[128, 128, 128]]), theme)
+    const initialLuminance = field.luminance[0]
+
+    updateParticleField(field, sampledImageData([[136, 136, 136]]))
+
+    expect(field.luminance[0]).not.toBe(initialLuminance)
+    expect(field.luminance[0]).toBeCloseTo(136 / 255)
+  })
+
+  it('updates colors for a sub-threshold luminance change', () => {
+    const field = createParticleField(sampledImageData([[128, 128, 128]]), theme)
+    const initialLuminance = field.luminance[0]
+    const initialColor = Array.from(field.colors)
+
+    updateParticleField(field, sampledImageData([[125, 125, 125]]))
+
+    expect(field.luminance[0]).toBe(initialLuminance)
+    expect(Array.from(field.colors)).not.toEqual(initialColor)
+    expect(Array.from(field.colors).slice(0, 3)).toEqual([1, 0, 0])
+  })
+
   it('creates one centered, aspect-preserving point per three-pixel sample', () => {
     const source = imageData(6, 4, new Array(6 * 4 * 4).fill(0).map((_, index) => index % 4 === 3 ? 255 : index / 4))
     const field = createParticleField(source, theme)
