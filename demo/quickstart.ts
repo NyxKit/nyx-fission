@@ -9,9 +9,10 @@ export function normalizeDemoDepth(depth: number): number {
   return Math.min(DEMO_DEPTH_MAX, Math.max(DEMO_DEPTH_MIN, depth))
 }
 
-export function commitDemoDepth(input: string, currentDepth: number): number {
-  if (!input.trim() || input.trim() === '-') return currentDepth
-  const nextDepth = Number(input)
+export function commitDemoDepth(input: string | number, currentDepth: number): number {
+  const normalizedInput = String(input).trim()
+  if (!normalizedInput || normalizedInput === '-') return currentDepth
+  const nextDepth = Number(normalizedInput)
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 

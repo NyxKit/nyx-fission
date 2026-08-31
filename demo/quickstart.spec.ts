@@ -47,4 +47,8 @@ describe('buildQuickstart', () => {
     expect(commitDemoDepth('-', 0.35)).toBe(0.35)
     expect(commitDemoDepth('-0.5', 0.35)).toBe(-0.5)
   })
+
+  it('accepts numeric values emitted by number inputs', () => {
+    expect(commitDemoDepth(0.5, 0.35)).toBe(0.5)
+  })
 })
