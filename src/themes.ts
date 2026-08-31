@@ -7,8 +7,8 @@ export type Color = readonly [number, number, number]
 const grayscale = hexPalette(['#555555'])
 const discodip = hexPalette(['#f0932b', '#eb4d4b', '#6ab04c', '#22a6b3', '#be2edd', '#4834d4', '#130f40'])
 const pastel = hexPalette(['#A8D8EA', '#A8D8EA', '#A8D8EA', '#AA96DA', '#AA96DA', '#FCBAD3', '#FFFFD2'])
-const nyxFallback = hexPalette(['#9f50f0', '#0f4c75', '#1faa59', '#e58e26', '#d72638', '#3b82f6'])
-const semanticNames = ['primary', 'secondary', 'success', 'warning', 'danger', 'info'] as const
+const nyxFallback = hexPalette(['#9f50f0', '#0f4c75', '#1faa59', '#e58e26'])
+const semanticNames = ['primary', 'secondary', 'tertiary', 'neutral'] as const
 
 function hexPalette(values: readonly string[]): readonly Color[] {
   return values.map((value) => parseColor(value) as Color)

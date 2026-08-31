@@ -41,10 +41,10 @@ describe('resolveTheme', () => {
     ])
   })
 
-  it('reads Nyx semantic colors in documented order', () => {
+  it('resolves exactly four Nyx particle colors in documented order', () => {
     const documentRef = document.implementation.createHTMLDocument('theme')
-    const values = ['#123456', '#abc', 'rgb(10, 20, 30)', 'rgba(40, 50, 60, .5)', '#fed', '#010203']
-    const names = ['primary', 'secondary', 'success', 'warning', 'danger', 'info']
+    const values = ['#123456', '#abc', 'rgb(10, 20, 30)', 'rgba(40, 50, 60, .5)']
+    const names = ['primary', 'secondary', 'tertiary', 'neutral']
 
     names.forEach((name, index) => documentRef.documentElement.style.setProperty(`--nyx-c-${name}`, values[index]))
 
@@ -53,19 +53,50 @@ describe('resolveTheme', () => {
       [170 / 255, 187 / 255, 204 / 255],
       [10 / 255, 20 / 255, 30 / 255],
       [40 / 255, 50 / 255, 60 / 255],
-      [255 / 255, 238 / 255, 221 / 255],
-      [1 / 255, 2 / 255, 3 / 255],
     ])
   })
 
-  it('uses the stable Nyx fallback for empty and invalid CSS values', () => {
+  it('uses stable Nyx fallbacks for missing and invalid CSS values', () => {
     const documentRef = document.implementation.createHTMLDocument('theme')
-    documentRef.documentElement.style.setProperty('--nyx-c-primary', '')
-    documentRef.documentElement.style.setProperty('--nyx-c-secondary', 'not-a-color')
+    documentRef.documentElement.style.setProperty('--nyx-c-primary', '#123456')
+    documentRef.documentElement.style.setProperty('--nyx-c-secondary', '#abc')
+    documentRef.documentElement.style.setProperty('--nyx-c-neutral', 'not-a-color')
 
-    expect(resolveTheme(ThemeName.Nyx, documentRef).slice(0, 2)).toEqual([
-      [159 / 255, 80 / 255, 240 / 255],
-      [15 / 255, 76 / 255, 117 / 255],
+    expect(resolveTheme(ThemeName.Nyx, documentRef)).toEqual([
+      [18 / 255, 52 / 255, 86 / 255],
+      [170 / 255, 187 / 255, 204 / 255],
+      [31 / 255, 170 / 255, 89 / 255],
+      [229 / 255, 142 / 255, 38 / 255],
+    ])
+  })
+
+  it('excludes NyxKit status colors from the particle palette', () => {
+    const documentRef = document.implementation.createHTMLDocument('theme')
+    const particleColors = {
+      primary: '#123456',
+      secondary: '#abc',
+      tertiary: 'rgb(10, 20, 30)',
+      neutral: 'rgba(40, 50, 60, .5)',
+    }
+    const statusColors = {
+      success: '#d72638',
+      warning: '#e58e26',
+      danger: '#d72638',
+      info: '#3b82f6',
+    }
+
+    Object.entries(particleColors).forEach(([name, value]) => {
+      documentRef.documentElement.style.setProperty(`--nyx-c-${name}`, value)
+    })
+    Object.entries(statusColors).forEach(([name, value]) => {
+      documentRef.documentElement.style.setProperty(`--nyx-c-${name}`, value)
+    })
+
+    expect(resolveTheme(ThemeName.Nyx, documentRef)).toEqual([
+      [18 / 255, 52 / 255, 86 / 255],
+      [170 / 255, 187 / 255, 204 / 255],
+      [10 / 255, 20 / 255, 30 / 255],
+      [40 / 255, 50 / 255, 60 / 255],
     ])
   })
 })
