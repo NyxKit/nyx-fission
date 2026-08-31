@@ -1,11 +1,20 @@
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
 
+export const DEMO_DEPTH_DEFAULT = 0.35
+export const DEMO_DEPTH_MIN = -1
+export const DEMO_DEPTH_MAX = 1
+
+export function normalizeDemoDepth(depth: number): number {
+  if (!Number.isFinite(depth)) return DEMO_DEPTH_DEFAULT
+  return Math.min(DEMO_DEPTH_MAX, Math.max(DEMO_DEPTH_MIN, depth))
+}
+
 export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
     : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
-  const config = `${sourceConfig}, depth: ${String(depth)}`
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}`
 
   return `import { MediaType, NyxFission } from 'nyx-fission'
 

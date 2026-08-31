@@ -5,7 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
 import { NyxEventName, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
-import { buildQuickstart } from './quickstart'
+import { buildQuickstart, normalizeDemoDepth } from './quickstart'
 
 enum SourceChoice {
   Image = 'image',
@@ -61,8 +61,7 @@ const handleError = ({ error, stage }: NyxErrorEvent) => {
 }
 
 const updateDepth = (value: string) => {
-  const nextDepth = Number(value)
-  if (Number.isFinite(nextDepth)) depth.value = nextDepth
+  depth.value = normalizeDemoDepth(Number(value))
 }
 
 const getParticleCanvas = (): HTMLCanvasElement => {
@@ -92,7 +91,7 @@ const createInstance = async () => {
     const config = {
       type: sourceChoice.value,
       theme: theme.value,
-      depth: depth.value,
+      depth: normalizeDemoDepth(depth.value),
       ...(sourceChoice.value === SourceChoice.Usermedia
         ? {}
         : { source: new URL(sourceUrl.value, document.baseURI).href }),

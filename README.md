@@ -49,7 +49,7 @@ const particles = new NyxFission({
 
 ### Particle depth
 
-`depth` defaults to `0.35` and accepts any finite signed number. Each particle's normalized luminance is mapped to depth with `z = luminance * depth`; `depth: 0` produces a flat plane. Depth is fixed when an instance is created, so destroy and recreate the instance to change it. The render loop and performance controls remain internal to NyxFission.
+`depth` defaults to `0.35` and accepts finite signed values from `-1,000,000` through `1,000,000`. This internal magnitude bound keeps the value safely representable for the renderer's `Float32` data. Each particle's normalized luminance is mapped to depth with `z = luminance * depth`; positive depth moves it toward positive Z, negative depth reverses that direction, and `depth: 0` produces a flat plane. Depth is fixed when an instance is created, so destroy and recreate the instance to change it. The render loop and performance controls remain internal to NyxFission.
 
 ## Events and lifecycle
 

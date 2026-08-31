@@ -33,4 +33,12 @@ describe('buildQuickstart', () => {
 
     expect(example).toContain('type: MediaType.Image, source: "/fixtures/nyx-orbit.svg"')
   })
+
+  it.each([
+    [2, 'depth: 1'],
+    [-2, 'depth: -1'],
+    [Number.NaN, 'depth: 0.35'],
+  ])('normalizes generated depth %s into the demo range', (depth, expectedDepth) => {
+    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', depth)).toContain(expectedDepth)
+  })
 })
