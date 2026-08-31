@@ -12,8 +12,9 @@ import {
 
 import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
+import { validateParticleDepth } from './depth'
 import { NyxError } from './errors'
-import { MAX_PARTICLE_DEPTH, NyxErrorStage } from './types'
+import { NyxErrorStage } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
@@ -65,9 +66,7 @@ export class ThreeRuntime {
   private readonly depth: number
 
   constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, errorCallback?: ErrorCallback) {
-    if (!Number.isFinite(depth) || Math.abs(depth) > MAX_PARTICLE_DEPTH) {
-      throw new NyxError(`Particle depth must be finite and no greater than ${MAX_PARTICLE_DEPTH} in magnitude: ${String(depth)}`, 'INVALID_CONFIG', NyxErrorStage.Rendering)
-    }
+    validateParticleDepth(depth, NyxErrorStage.Rendering)
     this.errorCallback = errorCallback
     this.depth = depth
     this.canvas = canvas

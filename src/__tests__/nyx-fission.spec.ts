@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { MAX_PARTICLE_DEPTH, MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
+import { MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
   runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; errorCallback?: (_error: unknown) => void }>,
 }))
+
+const FLOAT32_SAFE_DEPTH = 1_000_000
 
 vi.mock('../media/source', () => ({ loadMediaSource: mocks.loadMediaSource }))
 vi.mock('../media/type', () => ({ resolveMediaType: mocks.resolveMediaType }))
@@ -91,13 +93,14 @@ describe('NyxFission orchestration', () => {
     )
   })
 
-  it.each([Number.MAX_VALUE, -Number.MAX_VALUE, MAX_PARTICLE_DEPTH * 1.1, -MAX_PARTICLE_DEPTH * 1.1])('rejects depth beyond the finite framing bound %s', (depth) => {
+  it.each([Number.MAX_VALUE, -Number.MAX_VALUE, FLOAT32_SAFE_DEPTH * 1.1, -FLOAT32_SAFE_DEPTH * 1.1])('rejects depth beyond the finite framing bound %s', (depth) => {
     expect(() => new NyxFission({ source: './portrait.jpg', depth })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
   })
 
-  it.each([0, 0.5, -0.5, MAX_PARTICLE_DEPTH, -MAX_PARTICLE_DEPTH])('accepts finite depth %s', (depth) => {
+  it.each([0, 0.5, -0.5, FLOAT32_SAFE_DEPTH, -FLOAT32_SAFE_DEPTH])('accepts finite depth %s', (depth) => {
+    expect(Number.isFinite(Math.fround(depth))).toBe(true)
     expect(() => new NyxFission({ source: './portrait.jpg', depth })).not.toThrow()
   })
 

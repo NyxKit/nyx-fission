@@ -21,8 +21,6 @@ export interface NyxFissionConfig {
   depth?: number
 }
 
-export const MAX_PARTICLE_DEPTH = Number.MAX_VALUE / 4
-
 export enum NyxEventName {
   Loading = 'loading',
   Ready = 'ready',

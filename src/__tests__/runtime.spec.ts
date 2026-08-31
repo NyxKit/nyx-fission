@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
 import { ThreeRuntime } from '../runtime'
 import type { ParticleField } from '../particles'
-import { MAX_PARTICLE_DEPTH } from '../types'
 import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
+
+const FLOAT32_SAFE_DEPTH = 1_000_000
 
 const three = vi.hoisted(() => {
   class Scene {
@@ -269,7 +270,7 @@ describe('ThreeRuntime', () => {
     runtime.dispose()
   })
 
-  it.each([MAX_PARTICLE_DEPTH, -MAX_PARTICLE_DEPTH])('keeps camera framing and the shader uniform finite at the supported depth bound %s', (depth) => {
+  it.each([FLOAT32_SAFE_DEPTH, -FLOAT32_SAFE_DEPTH])('keeps camera framing and the shader uniform finite at the supported depth bound %s', (depth) => {
     const runtime = new ThreeRuntime(canvas(), field(), depth)
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
     const material = vi.mocked(three.ShaderMaterial).mock.results[0].value
@@ -280,12 +281,14 @@ describe('ThreeRuntime', () => {
     expect(camera.near).toBeGreaterThan(0)
     expect(Number.isFinite(camera.far)).toBe(true)
     expect(camera.far).toBeGreaterThan(camera.near)
+    expect(Number.isFinite(Math.fround(depth))).toBe(true)
+    expect(Number.isFinite(Math.fround(material.uniforms.depth.value as number))).toBe(true)
     expect(material.uniforms.depth.value).toBe(depth)
     runtime.dispose()
   })
 
-  it('rejects depth beyond the supported framing bound', () => {
-    expect(() => new ThreeRuntime(canvas(), field(), Number.MAX_VALUE)).toThrowError(
+  it.each([FLOAT32_SAFE_DEPTH * 1.1, Number.MAX_VALUE])('rejects depth beyond the supported framing bound %s', (depth) => {
+    expect(() => new ThreeRuntime(canvas(), field(), depth)).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'rendering' }),
     )
   })
