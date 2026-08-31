@@ -41,6 +41,7 @@ describe('particle fields', () => {
     const initial = sampledImageData([[255, 255, 255], [0, 0, 0], [0, 255, 0], [0, 0, 255]])
     const field = createParticleField(initial, theme)
     const positions = field.positions
+    const xyPositions = Array.from(field.positions).filter((_, index) => index % 3 !== 2)
     const luminance = field.luminance
     const updated = sampledImageData([[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0]])
 
@@ -48,6 +49,7 @@ describe('particle fields', () => {
     updateParticleField(field, updated)
 
     expect(field.positions).toBe(positions)
+    expect(Array.from(field.positions).filter((_, index) => index % 3 !== 2)).toEqual(xyPositions)
     expect(field.luminance).toBe(luminance)
     expect(Array.from(field.positions).filter((_, index) => index % 3 === 2)).toEqual([0, 0, 0, 0])
     expect(Array.from(field.luminance)).toEqual([0, 1, 0.2126, 0.7152].map((value) => expect.closeTo(value, 5)))

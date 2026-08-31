@@ -104,6 +104,15 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
   })
 
+  it.each([0.5, 0, -0.5])('passes explicit depth %s to the runtime constructor', async (depth) => {
+    const particles = new NyxFission({ source: './portrait.jpg', depth })
+    particles.mount(canvas())
+    await particles.ready
+
+    expect(mocks.runtimeInstances[0].depth).toBe(depth)
+    particles.destroy()
+  })
+
   it('rejects an invalid theme before starting work', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', theme: 'electric' as ThemeName })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
