@@ -14,29 +14,33 @@ const three = vi.hoisted(() => {
     remove = vi.fn()
   }
 
-  class OrthographicCamera {
-    left: number
-    right: number
-    top: number
-    bottom: number
+  class PerspectiveCamera {
+    fov: number
+    aspect: number
     near: number
     far: number
     position = { z: 0 }
+    lookAt = vi.fn()
     updateProjectionMatrix = vi.fn()
 
-    constructor(left: number, right: number, top: number, bottom: number, near: number, far: number) {
-      this.left = left
-      this.right = right
-      this.top = top
-      this.bottom = bottom
+    constructor(fov: number, aspect: number, near: number, far: number) {
+      this.fov = fov
+      this.aspect = aspect
       this.near = near
       this.far = far
     }
   }
 
   class BufferGeometry {
+    attributes: Record<string, Float32BufferAttribute> = {}
     setAttribute = vi.fn()
     dispose = vi.fn()
+
+    constructor() {
+      this.setAttribute.mockImplementation((name: string, attribute: Float32BufferAttribute) => {
+        this.attributes[name] = attribute
+      })
+    }
   }
 
   class Float32BufferAttribute {
@@ -83,7 +87,7 @@ const three = vi.hoisted(() => {
 
   return {
     Scene: vi.fn((...args: unknown[]) => Reflect.construct(Scene, args)),
-    OrthographicCamera: vi.fn((...args: unknown[]) => Reflect.construct(OrthographicCamera, args)),
+    PerspectiveCamera: vi.fn((...args: unknown[]) => Reflect.construct(PerspectiveCamera, args)),
     BufferGeometry: vi.fn((...args: unknown[]) => Reflect.construct(BufferGeometry, args)),
     Float32BufferAttribute: vi.fn((...args: unknown[]) => Reflect.construct(Float32BufferAttribute, args)),
     ShaderMaterial: vi.fn((...args: unknown[]) => Reflect.construct(ShaderMaterial, args)),
@@ -101,6 +105,7 @@ function field(pointCount = 1): ParticleField {
   return {
     positions: new Float32Array(pointCount * 3),
     colors: new Float32Array(pointCount * 3).fill(1),
+    luminance: new Float32Array(pointCount).fill(0.5),
   } as ParticleField
 }
 
@@ -135,17 +140,20 @@ describe('ThreeRuntime', () => {
   it('creates and attaches the Three.js particle scene', () => {
     const target = canvas()
 
-    const runtime = new ThreeRuntime(target, field())
+    const runtime = new ThreeRuntime(target, field(), 0.35)
 
     expect(three.Scene).toHaveBeenCalledTimes(1)
-    expect(three.OrthographicCamera).toHaveBeenCalledWith(-640 / 360 / 2, 640 / 360 / 2, 0.5, -0.5, 0.1, 3)
-    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
-    expect(camera.position.z).toBe(2)
-    expect(camera.near).toBeLessThan(camera.position.z - 1)
-    expect(camera.far).toBeGreaterThan(camera.position.z)
+    expect(three.PerspectiveCamera).toHaveBeenCalledWith(50, 640 / 360, expect.any(Number), expect.any(Number))
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
+    expect(camera.position.z).toBeGreaterThan(0.35)
+    expect(camera.lookAt).toHaveBeenCalledWith(0, 0, 0)
+    expect(camera.near).toBeLessThan(camera.position.z - 0.35)
+    expect(camera.far).toBeGreaterThan(camera.position.z + 0.35)
     expect(three.BufferGeometry).toHaveBeenCalledTimes(1)
     expect(three.Points).toHaveBeenCalledTimes(1)
     expect(three.ShaderMaterial).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.uniforms.depth.value).toBe(0.35)
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.attributes.luminance.array).toHaveLength(1)
     expect(three.WebGLRenderer).toHaveBeenCalledWith({ canvas: target, alpha: true, antialias: true })
     expect(observer.observe).toHaveBeenCalledWith(target)
 
@@ -154,10 +162,10 @@ describe('ThreeRuntime', () => {
 
   it('schedules the internal loop and delegates each frame callback', () => {
     const callback = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     const scene = vi.mocked(three.Scene).mock.results[0].value
-    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
 
     runtime.start(callback)
 
@@ -174,7 +182,7 @@ describe('ThreeRuntime', () => {
   it('does not start a second loop when a frame callback calls start', () => {
     let runtime: ThreeRuntime
     const callback = vi.fn(() => runtime.start(callback))
-    runtime = new ThreeRuntime(canvas(), field())
+    runtime = new ThreeRuntime(canvas(), field(), 0.35)
     runtime.start(callback)
 
     const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
@@ -188,7 +196,7 @@ describe('ThreeRuntime', () => {
   it('does not render or schedule another frame when the callback disposes', () => {
     const renderer = vi.mocked(three.WebGLRenderer)
     let runtime: ThreeRuntime
-    runtime = new ThreeRuntime(canvas(), field())
+    runtime = new ThreeRuntime(canvas(), field(), 0.35)
     runtime.start(() => runtime.dispose())
 
     const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
@@ -201,7 +209,7 @@ describe('ThreeRuntime', () => {
   it('reports and disposes the runtime when a frame callback throws', () => {
     const cause = new Error('frame failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), onError)
+    const runtime = new ThreeRuntime(canvas(), field(), 0, onError)
     runtime.start(() => {
       throw cause
     })
@@ -218,23 +226,36 @@ describe('ThreeRuntime', () => {
 
   it('resizes the renderer and camera from the content box', () => {
     const target = canvas()
-    const runtime = new ThreeRuntime(target, field())
+    const runtime = new ThreeRuntime(target, field(), 0.35)
 
     resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
 
-    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
     expect(vi.mocked(three.WebGLRenderer).mock.results[0].value.setSize).toHaveBeenLastCalledWith(800, 400, false)
-    expect(camera.left).toBe(-1)
-    expect(camera.right).toBe(1)
-    expect(camera.updateProjectionMatrix).toHaveBeenCalledTimes(2)
+    expect(camera.aspect).toBe(2)
+    expect(camera.updateProjectionMatrix).toHaveBeenCalledTimes(3)
+    runtime.dispose()
+  })
+
+  it('keeps the same perspective framing when resized to portrait', () => {
+    const runtime = new ThreeRuntime(canvas(), field(), -0.75)
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
+    const initialZ = camera.position.z
+
+    resizeCallback([{ contentRect: { width: 360, height: 640 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
+
+    expect(camera.aspect).toBe(360 / 640)
+    expect(camera.position.z).toBe(initialZ)
+    expect(camera.near).toBeLessThan(initialZ - 0.75)
+    expect(camera.far).toBeGreaterThan(initialZ + 0.75)
     runtime.dispose()
   })
 
   it('disposes all owned resources and the pending frame', () => {
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     const scene = vi.mocked(three.Scene).mock.results[0].value
     const points = vi.mocked(three.Points).mock.results[0].value
-    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
     const material = vi.mocked(three.ShaderMaterial).mock.results[0].value
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     runtime.start(vi.fn())
@@ -267,21 +288,21 @@ describe('ThreeRuntime', () => {
   })
 
   it('ignores queued resize callbacks after disposal', () => {
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
-    const camera = vi.mocked(three.OrthographicCamera).mock.results[0].value
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
 
     runtime.dispose()
     resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
 
     expect(renderer.setSize).toHaveBeenCalledOnce()
-    expect(camera.updateProjectionMatrix).toHaveBeenCalledOnce()
+    expect(camera.updateProjectionMatrix).toHaveBeenCalledTimes(2)
   })
 
   it('reports and disposes a typed error when observed resize fails', () => {
     const cause = new Error('resize failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), onError)
+    const runtime = new ThreeRuntime(canvas(), field(), 0, onError)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     renderer.setSize.mockImplementationOnce(() => {
       throw cause
@@ -306,7 +327,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field())
+      new ThreeRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -326,7 +347,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field())
+      new ThreeRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -340,29 +361,33 @@ describe('ThreeRuntime', () => {
   })
 
   it('updates existing buffer attributes in place when field sizes match', () => {
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
     const attributes = vi.mocked(three.Float32BufferAttribute).mock.results
     const initialPosition = attributes[0].value
     const initialColor = attributes[1].value
+    const initialLuminance = attributes[2].value
     const nextField = field()
     nextField.positions[0] = 0.5
     nextField.colors[0] = 0.25
+    nextField.luminance[0] = 0.75
 
     runtime.setField(nextField)
 
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
     expect(geometry.dispose).not.toHaveBeenCalled()
-    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(3)
     expect(initialPosition.array[0]).toBe(0.5)
     expect(initialPosition.needsUpdate).toBe(true)
     expect(initialColor.array[0]).toBe(0.25)
     expect(initialColor.needsUpdate).toBe(true)
+    expect(initialLuminance.array[0]).toBe(0.75)
+    expect(initialLuminance.needsUpdate).toBe(true)
     runtime.dispose()
   })
 
   it('replaces and disposes geometry when field sizes change', () => {
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
 
     runtime.setField(field(2))
@@ -375,7 +400,7 @@ describe('ThreeRuntime', () => {
   })
 
   it('rejects field updates after disposal with a typed lifecycle error', () => {
-    const runtime = new ThreeRuntime(canvas(), field())
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
     runtime.dispose()
 
     expect(() => runtime.setField(field())).toThrowError(NyxError)
@@ -385,7 +410,7 @@ describe('ThreeRuntime', () => {
       expect(error).toMatchObject({ code: 'DESTROYED', stage: 'rendering' })
     }
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
-    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(3)
   })
 
   it('cleans up when initial renderer sizing fails', () => {
@@ -394,7 +419,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field())
+      new ThreeRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -413,7 +438,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field())
+      new ThreeRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -424,8 +449,11 @@ describe('ThreeRuntime', () => {
   it('uses Three built-ins and required particle shader behavior', () => {
     expect(vertexShader).not.toMatch(/(?:attribute|in)\s+vec3\s+position\s*;/)
     expect(vertexShader).toMatch(/(?:attribute|in)\s+vec3\s+color\s*;/)
+    expect(vertexShader).toMatch(/uniform\s+float\s+depth\s*;/)
+    expect(vertexShader).toMatch(/attribute\s+float\s+luminance\s*;/)
+    expect(vertexShader).toContain('displacedPosition.z = luminance * depth')
     expect(vertexShader).toContain('gl_PointSize = pointSize')
-    expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0)')
+    expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0)')
     expect(vertexShader).toContain('particleColor = color')
   })
 

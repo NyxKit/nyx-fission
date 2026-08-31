@@ -3,7 +3,7 @@
 import {
   BufferGeometry,
   Float32BufferAttribute,
-  OrthographicCamera,
+  PerspectiveCamera,
   Points,
   Scene,
   ShaderMaterial,
@@ -16,9 +16,9 @@ import { NyxError } from './errors'
 import { NyxErrorStage } from './types'
 import type { ParticleField } from './particles'
 
-const CAMERA_Z = 2
-const CAMERA_NEAR = 0.1
-const CAMERA_FAR = 3
+const CAMERA_FOV = 50
+const CAMERA_GAP = 0.1
+const FIELD_HALF_HEIGHT = 0.5
 
 export type FrameCallback = (_time: number) => void
 type ErrorCallback = (_error: unknown) => void
@@ -30,10 +30,21 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
   }
 }
 
+function cameraFrame(depth: number): { positionZ: number; near: number; far: number } {
+  const absoluteDepth = Math.abs(depth)
+  const frameDistance = FIELD_HALF_HEIGHT / Math.tan((CAMERA_FOV * Math.PI) / 360)
+  const positionZ = frameDistance + absoluteDepth + CAMERA_GAP
+  return {
+    positionZ,
+    near: Math.max(0.01, positionZ - absoluteDepth - CAMERA_GAP),
+    far: positionZ + absoluteDepth + CAMERA_GAP,
+  }
+}
+
 export class ThreeRuntime {
   private canvas: HTMLCanvasElement | undefined
   private scene: Scene | undefined
-  private camera: OrthographicCamera | undefined
+  private camera: PerspectiveCamera | undefined
   private geometry: BufferGeometry | undefined
   private material: ShaderMaterial | undefined
   private points: Points | undefined
@@ -41,26 +52,30 @@ export class ThreeRuntime {
   private observer: ResizeObserver | undefined
   private positionAttribute: Float32BufferAttribute | undefined
   private colorAttribute: Float32BufferAttribute | undefined
+  private luminanceAttribute: Float32BufferAttribute | undefined
   private frameId: number | undefined
   private running = false
   private disposed = false
   private frameCallback: FrameCallback | undefined
   private readonly errorCallback: ErrorCallback | undefined
+  private readonly depth: number
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depthOrErrorCallback: number | ErrorCallback = 0, errorCallback?: ErrorCallback) {
-    this.errorCallback = typeof depthOrErrorCallback === 'function' ? depthOrErrorCallback : errorCallback
-    void (typeof depthOrErrorCallback === 'number' ? depthOrErrorCallback : 0)
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, errorCallback?: ErrorCallback) {
+    this.errorCallback = errorCallback
+    this.depth = depth
     this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
-    this.camera = new OrthographicCamera(-size.width / size.height / 2, size.width / size.height / 2, 0.5, -0.5, CAMERA_NEAR, CAMERA_FAR)
-    this.camera.position.z = CAMERA_Z
+    const frame = cameraFrame(depth)
+    this.camera = new PerspectiveCamera(CAMERA_FOV, size.width / size.height, frame.near, frame.far)
+    this.camera.position.z = frame.positionZ
+    this.updateCameraFraming(size.width / size.height, depth)
     this.geometry = new BufferGeometry()
     this.material = new ShaderMaterial({
       vertexShader,
       fragmentShader,
       transparent: true,
-      uniforms: { pointSize: { value: 3 } },
+      uniforms: { pointSize: { value: 3 }, depth: { value: depth } },
     })
     this.points = new Points(this.geometry, this.material)
     this.scene.add(this.points)
@@ -118,16 +133,19 @@ export class ThreeRuntime {
     if (!geometry || !points) {
       throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
     }
-    if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length) {
+    if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length && this.luminanceAttribute?.array.length === field.luminance.length) {
       this.positionAttribute.array.set(field.positions)
       this.positionAttribute.needsUpdate = true
       this.colorAttribute.array.set(field.colors)
       this.colorAttribute.needsUpdate = true
+      this.luminanceAttribute.array.set(field.luminance)
+      this.luminanceAttribute.needsUpdate = true
       return
     }
 
     const positionAttribute = new Float32BufferAttribute(field.positions, 3)
     const colorAttribute = new Float32BufferAttribute(field.colors, 3)
+    const luminanceAttribute = new Float32BufferAttribute(field.luminance, 1)
     let targetGeometry = geometry
     if (this.positionAttribute || this.colorAttribute) {
       geometry.dispose()
@@ -137,8 +155,10 @@ export class ThreeRuntime {
     }
     targetGeometry.setAttribute('position', positionAttribute)
     targetGeometry.setAttribute('color', colorAttribute)
+    targetGeometry.setAttribute('luminance', luminanceAttribute)
     this.positionAttribute = positionAttribute
     this.colorAttribute = colorAttribute
+    this.luminanceAttribute = luminanceAttribute
   }
 
   start(frameCallback: FrameCallback): void {
@@ -190,6 +210,7 @@ export class ThreeRuntime {
     void camera
     this.positionAttribute = undefined
     this.colorAttribute = undefined
+    this.luminanceAttribute = undefined
     this.points = undefined
     this.geometry = undefined
     this.canvas = undefined
@@ -208,8 +229,18 @@ export class ThreeRuntime {
     const camera = this.camera
     if (!renderer || !camera) return
     renderer.setSize(safeWidth, safeHeight, false)
-    camera.left = -safeWidth / safeHeight / 2
-    camera.right = safeWidth / safeHeight / 2
+    this.updateCameraFraming(safeWidth / safeHeight, this.depth)
+  }
+
+  private updateCameraFraming(aspect: number, depth: number): void {
+    const camera = this.camera
+    if (!camera) return
+    const frame = cameraFrame(depth)
+    camera.aspect = aspect
+    camera.position.z = frame.positionZ
+    camera.near = frame.near
+    camera.far = frame.far
+    camera.lookAt(0, 0, 0)
     camera.updateProjectionMatrix()
   }
 }
