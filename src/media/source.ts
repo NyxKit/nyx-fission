@@ -143,6 +143,7 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
       if (settled || startingPlayback) return
       startingPlayback = true
       try {
+        element.currentTime = 0
         await element.play()
         if (settled) return
         settled = true
@@ -183,6 +184,7 @@ function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
       element.muted = true
       element.autoplay = true
       element.playsInline = true
+      element.loop = true
       element.preload = 'auto'
       element.src = url
     } catch (cause) {

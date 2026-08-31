@@ -140,6 +140,11 @@ describe('loadMediaSource', () => {
   it('starts URL video playback after readiness and maps play rejection', async () => {
     const assignments: string[] = []
     let ready = false
+    let currentTime = 12
+    let loop = false
+    let autoplay = false
+    let muted = false
+    let playsInline = false
     const video = mediaElement({
       videoWidth: 640,
       videoHeight: 360,
@@ -148,8 +153,43 @@ describe('loadMediaSource', () => {
       removeAttribute: vi.fn(),
       play: vi.fn(() => {
         expect(ready).toBe(true)
+        expect(loop).toBe(true)
+        expect(autoplay).toBe(true)
+        expect(muted).toBe(true)
+        expect(playsInline).toBe(true)
+        expect(currentTime).toBe(0)
         return Promise.reject(new Error('autoplay blocked'))
       }),
+      get currentTime() {
+        return currentTime
+      },
+      set currentTime(value: number) {
+        currentTime = value
+      },
+      get loop() {
+        return loop
+      },
+      set loop(value: boolean) {
+        loop = value
+      },
+      get autoplay() {
+        return autoplay
+      },
+      set autoplay(value: boolean) {
+        autoplay = value
+      },
+      get muted() {
+        return muted
+      },
+      set muted(value: boolean) {
+        muted = value
+      },
+      get playsInline() {
+        return playsInline
+      },
+      set playsInline(value: boolean) {
+        playsInline = value
+      },
       set crossOrigin(value: string) {
         assignments.push(`crossOrigin:${value}`)
       },
@@ -170,6 +210,11 @@ describe('loadMediaSource', () => {
     )
 
     expect(assignments).toEqual(['crossOrigin:anonymous', 'src'])
+    expect(loop).toBe(true)
+    expect(autoplay).toBe(true)
+    expect(muted).toBe(true)
+    expect(playsInline).toBe(true)
+    expect(currentTime).toBe(0)
     expect(video.play).toHaveBeenCalledOnce()
     expect(error).toBeInstanceOf(NyxError)
     expect(error).toMatchObject({ code: 'MEDIA_LOAD_FAILED', stage: 'source' })
