@@ -10,7 +10,7 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import { MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
+import { MAX_PARTICLE_DEPTH, MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
@@ -25,8 +25,8 @@ function validateConfig(config: NyxFissionConfig): void {
   if (config.theme !== undefined && !themeNames.includes(config.theme)) {
     throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
-  if (config.depth !== undefined && !Number.isFinite(config.depth)) {
-    throw new NyxError(`Particle depth must be finite: ${String(config.depth)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
+  if (config.depth !== undefined && (!Number.isFinite(config.depth) || Math.abs(config.depth) > MAX_PARTICLE_DEPTH)) {
+    throw new NyxError(`Particle depth must be finite and no greater than ${MAX_PARTICLE_DEPTH} in magnitude: ${String(config.depth)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
   if (config.type !== MediaType.Usermedia && !config.source) {
     throw new NyxError('A media source is required', 'INVALID_CONFIG', NyxErrorStage.Source)

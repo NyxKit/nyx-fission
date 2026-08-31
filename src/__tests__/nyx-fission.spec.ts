@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
+import { MAX_PARTICLE_DEPTH, MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -91,7 +91,13 @@ describe('NyxFission orchestration', () => {
     )
   })
 
-  it.each([0, 0.5, -0.5])('accepts finite depth %s', (depth) => {
+  it.each([Number.MAX_VALUE, -Number.MAX_VALUE, MAX_PARTICLE_DEPTH * 1.1, -MAX_PARTICLE_DEPTH * 1.1])('rejects depth beyond the finite framing bound %s', (depth) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', depth })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+  })
+
+  it.each([0, 0.5, -0.5, MAX_PARTICLE_DEPTH, -MAX_PARTICLE_DEPTH])('accepts finite depth %s', (depth) => {
     expect(() => new NyxFission({ source: './portrait.jpg', depth })).not.toThrow()
   })
 

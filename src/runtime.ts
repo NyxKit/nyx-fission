@@ -13,13 +13,12 @@ import {
 import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
 import { NyxError } from './errors'
-import { NyxErrorStage } from './types'
+import { MAX_PARTICLE_DEPTH, NyxErrorStage } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
 const CAMERA_GAP = 0.1
 const FIELD_HALF_HEIGHT = 0.5
-const MAX_FRAMING_DEPTH = Number.MAX_VALUE / 4
 
 export type FrameCallback = (_time: number) => void
 type ErrorCallback = (_error: unknown) => void
@@ -32,7 +31,7 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
 }
 
 function cameraFrame(aspect: number, depth: number): { positionZ: number; near: number; far: number } {
-  const absoluteDepth = Math.min(Math.abs(depth), MAX_FRAMING_DEPTH)
+  const absoluteDepth = Math.abs(depth)
   const verticalHalfAngle = (CAMERA_FOV * Math.PI) / 360
   const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * aspect)
   const verticalFrameDistance = FIELD_HALF_HEIGHT / Math.tan(verticalHalfAngle)
@@ -66,6 +65,9 @@ export class ThreeRuntime {
   private readonly depth: number
 
   constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, errorCallback?: ErrorCallback) {
+    if (!Number.isFinite(depth) || Math.abs(depth) > MAX_PARTICLE_DEPTH) {
+      throw new NyxError(`Particle depth must be finite and no greater than ${MAX_PARTICLE_DEPTH} in magnitude: ${String(depth)}`, 'INVALID_CONFIG', NyxErrorStage.Rendering)
+    }
     this.errorCallback = errorCallback
     this.depth = depth
     this.canvas = canvas
