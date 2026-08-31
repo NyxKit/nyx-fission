@@ -18,6 +18,7 @@ export interface NyxFissionConfig {
   type?: MediaType
   theme?: ThemeName
   querySelector?: string
+  depth?: number
 }
 
 export enum NyxEventName {

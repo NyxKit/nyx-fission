@@ -37,19 +37,20 @@ describe('particle fields', () => {
     expect(field.colors.length).toBe(field.positions.length)
   })
 
-  it('derives Z and palette colors from luminance and updates the existing buffers', () => {
+  it('stores normalized luminance separately and updates the existing buffers', () => {
     const initial = sampledImageData([[255, 255, 255], [0, 0, 0], [0, 255, 0], [0, 0, 255]])
     const field = createParticleField(initial, theme)
     const positions = field.positions
+    const luminance = field.luminance
     const updated = sampledImageData([[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0]])
 
+    expect(Array.from(field.luminance)).toEqual([1, 0, 0.7152, 0.0722].map((value) => expect.closeTo(value, 5)))
     updateParticleField(field, updated)
 
     expect(field.positions).toBe(positions)
-    expect(field.positions[2]).toBeCloseTo(0)
-    expect(field.positions[5]).toBeCloseTo(1)
-    expect(field.positions[8]).toBeCloseTo(0.2126)
-    expect(field.positions[11]).toBeCloseTo(0.7152)
+    expect(field.luminance).toBe(luminance)
+    expect(Array.from(field.positions).filter((_, index) => index % 3 === 2)).toEqual([0, 0, 0, 0])
+    expect(Array.from(field.luminance)).toEqual([0, 1, 0.2126, 0.7152].map((value) => expect.closeTo(value, 5)))
     expect(Array.from(field.colors)).toEqual([
       0, 0, 0,
       0, 0, 1,

@@ -5,6 +5,7 @@ import {
   NyxEventName,
   NyxFission,
   ThemeName,
+  type NyxFissionConfig,
 } from '../index'
 
 describe('public string enums', () => {
@@ -19,5 +20,11 @@ describe('public string enums', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as MediaType })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'source' }),
     )
+  })
+
+  it('exposes signed numeric depth in the public configuration', () => {
+    const config: NyxFissionConfig = { source: 'image.jpg', depth: -0.5 }
+
+    expect(config.depth).toBe(-0.5)
   })
 })

@@ -24,6 +24,7 @@ function validateImageData(imageData: ImageData, width?: number, height?: number
 export class ParticleField {
   readonly positions: Float32Array
   readonly colors: Float32Array
+  readonly luminance: Float32Array
   private readonly pixelIndices: number[]
   private readonly width: number
   private readonly height: number
@@ -45,6 +46,7 @@ export class ParticleField {
     }
     this.positions = new Float32Array(positions)
     this.colors = new Float32Array(positions.length)
+    this.luminance = new Float32Array(positions.length / 3)
     updateParticleField(this, imageData)
   }
 
@@ -56,7 +58,7 @@ export class ParticleField {
       const green = imageData.data[pixelIndex + 1]
       const blue = imageData.data[pixelIndex + 2]
       const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
-      this.positions[index * 3 + 2] = luminance
+      this.luminance[index] = luminance
       const color = this.theme[Math.min(this.theme.length - 1, Math.floor(luminance * this.theme.length))]
       this.colors.set(color, index * 3)
     })

@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; errorCallback?: (_error: unknown) => void }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; errorCallback?: (_error: unknown) => void }>,
 }))
 
 vi.mock('../media/source', () => ({ loadMediaSource: mocks.loadMediaSource }))
@@ -34,8 +34,11 @@ vi.mock('../runtime', () => ({
     dispose = vi.fn()
     errorCallback: ((_error: unknown) => void) | undefined
 
-    constructor(_canvas: HTMLCanvasElement, _field: unknown, errorCallback?: (_error: unknown) => void) {
-      this.errorCallback = errorCallback
+    depth: number
+
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number | ((_error: unknown) => void), errorCallback?: (_error: unknown) => void) {
+      this.depth = typeof depth === 'number' ? depth : 0
+      this.errorCallback = typeof depth === 'function' ? depth : errorCallback
       mocks.runtimeInstances.push(this)
     }
   },
@@ -80,6 +83,25 @@ describe('NyxFission orchestration', () => {
     )
     expect(mocks.resolveMediaType).not.toHaveBeenCalled()
     expect(mocks.loadMediaSource).not.toHaveBeenCalled()
+  })
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])('rejects non-finite depth %s', (depth) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', depth })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG' }),
+    )
+  })
+
+  it.each([0, 0.5, -0.5])('accepts finite depth %s', (depth) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', depth })).not.toThrow()
+  })
+
+  it('passes the default depth to the runtime constructor', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg' })
+    particles.mount(canvas())
+    await particles.ready
+
+    expect(mocks.runtimeInstances[0].depth).toBe(0.35)
+    particles.destroy()
   })
 
   it('rejects an invalid theme before starting work', () => {

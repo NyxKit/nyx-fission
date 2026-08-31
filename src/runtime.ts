@@ -47,8 +47,9 @@ export class ThreeRuntime {
   private frameCallback: FrameCallback | undefined
   private readonly errorCallback: ErrorCallback | undefined
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, errorCallback?: ErrorCallback) {
-    this.errorCallback = errorCallback
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depthOrErrorCallback: number | ErrorCallback = 0, errorCallback?: ErrorCallback) {
+    this.errorCallback = typeof depthOrErrorCallback === 'function' ? depthOrErrorCallback : errorCallback
+    void (typeof depthOrErrorCallback === 'number' ? depthOrErrorCallback : 0)
     this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
