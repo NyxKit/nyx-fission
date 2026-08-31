@@ -428,9 +428,9 @@ Expected: FAIL because theme and particle modules do not exist.
 Define `resolveTheme(name, documentRef = document): readonly Color[]` and keep
 colors as normalized RGB triples for Three.js attributes. Use the existing
 audio-visualiser palettes for `grayscale`, `discodip`, and `pastel`. For `nyx`,
-read semantic CSS variables in this order: primary, secondary, success,
-warning, danger, info. Parse `#rgb`, `#rrggbb`, and `rgb()/rgba()` values;
-fallback to the current Nyx literal values when a token is missing or invalid.
+read semantic CSS variables in this order: primary, secondary, tertiary, neutral.
+Parse `#rgb`, `#rrggbb`, and `rgb()/rgba()` values; independently fall back to
+the current Nyx literal values when a token is missing or invalid.
 
 - [ ] **Step 4: Implement particle data generation and frame updates**
 
