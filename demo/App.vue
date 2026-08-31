@@ -175,14 +175,14 @@ onBeforeUnmount(destroyInstance)
 </script>
 
 <template>
-  <div class="site-shell depth-shell">
+  <Teleport to=".control-rail">
     <fieldset class="depth-control">
       <legend>Appearance</legend>
       <label class="field-label" for="depth-control">Particle depth: {{ depth.toFixed(2) }}</label>
       <NyxInput id="depth-control" :model-value="depthInput" @update:model-value="updateDepthInput" @blur="commitDepth" :type="NyxInputType.Number" :min="-1" :max="1" :step="0.05" :size="NyxSize.Small" />
       <span class="help-text">Signed depth maps luminance toward or away from the camera.</span>
     </fieldset>
-  </div>
+  </Teleport>
   <main class="site-shell">
     <header class="topbar">
       <a class="wordmark" href="#top" aria-label="NyxFission home"><span class="wordmark-mark">N</span><span>nyx<span class="wordmark-muted">fission</span></span></a>

@@ -35,4 +35,11 @@ describe('compiled demo entry', () => {
     expect(app).not.toContain("on('ready', fn)")
     expect(app).not.toContain("off('ready', fn)")
   })
+
+  it('places the depth control in the playground control rail', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+
+    expect(app).toContain('<Teleport to=".control-rail">')
+    expect(app).toContain('<fieldset class="depth-control">')
+  })
 })
