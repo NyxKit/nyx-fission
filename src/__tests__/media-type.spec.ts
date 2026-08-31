@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NyxError } from '../errors'
 import { inferMediaType, resolveMediaType } from '../media/type'
+import { MediaType } from '../types'
 
 describe('inferMediaType', () => {
   it.each(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'])(
@@ -39,15 +40,15 @@ describe('inferMediaType', () => {
 
 describe('resolveMediaType', () => {
   it('prefers an explicit image type over a video URL', () => {
-    expect(resolveMediaType('image', '/assets/clip.mp4')).toBe('image')
+    expect(resolveMediaType(MediaType.Image, '/assets/clip.mp4')).toBe(MediaType.Image)
   })
 
   it('prefers an explicit video type over an image URL', () => {
-    expect(resolveMediaType('video', '/assets/photo.jpg')).toBe('video')
+    expect(resolveMediaType(MediaType.Video, '/assets/photo.jpg')).toBe(MediaType.Video)
   })
 
   it('preserves an explicit usermedia type over an image URL', () => {
-    expect(resolveMediaType('usermedia', '/assets/photo.jpg')).toBe('usermedia')
+    expect(resolveMediaType(MediaType.Usermedia, '/assets/photo.jpg')).toBe(MediaType.Usermedia)
   })
 
   it('infers the type when no explicit type is provided', () => {

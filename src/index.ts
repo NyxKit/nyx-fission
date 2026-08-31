@@ -1,12 +1,9 @@
 export { NyxFission } from './nyx-fission'
 export { NyxError } from './errors'
+export { MediaType, NyxErrorStage, NyxEventName, ThemeName } from './types'
 export type { NyxErrorCode } from './errors'
 export type {
-  MediaType,
   NyxErrorEvent,
   NyxEventMap,
-  NyxEventName,
   NyxFissionConfig,
-  NyxErrorStage,
-  ThemeName,
 } from './types'

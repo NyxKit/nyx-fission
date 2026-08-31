@@ -3,9 +3,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveTheme } from '../themes'
+import { ThemeName } from '../types'
 
 describe('resolveTheme', () => {
-  it.each(['grayscale', 'discodip', 'pastel', 'nyx'] as const)('resolves %s to normalized RGB triples', (name) => {
+  it.each(Object.values(ThemeName))('resolves %s to normalized RGB triples', (name) => {
     const theme = resolveTheme(name)
 
     expect(theme.length).toBeGreaterThan(0)
@@ -13,11 +14,11 @@ describe('resolveTheme', () => {
   })
 
   it('returns the exact grayscale palette', () => {
-    expect(resolveTheme('grayscale')).toEqual([[85 / 255, 85 / 255, 85 / 255]])
+    expect(resolveTheme(ThemeName.Grayscale)).toEqual([[85 / 255, 85 / 255, 85 / 255]])
   })
 
   it('returns the exact discodip palette', () => {
-    expect(resolveTheme('discodip')).toEqual([
+    expect(resolveTheme(ThemeName.Discodip)).toEqual([
       [240 / 255, 147 / 255, 43 / 255],
       [235 / 255, 77 / 255, 75 / 255],
       [106 / 255, 176 / 255, 76 / 255],
@@ -29,7 +30,7 @@ describe('resolveTheme', () => {
   })
 
   it('returns the exact pastel palette, including repeated colors', () => {
-    expect(resolveTheme('pastel')).toEqual([
+    expect(resolveTheme(ThemeName.Pastel)).toEqual([
       [168 / 255, 216 / 255, 234 / 255],
       [168 / 255, 216 / 255, 234 / 255],
       [168 / 255, 216 / 255, 234 / 255],
@@ -47,7 +48,7 @@ describe('resolveTheme', () => {
 
     names.forEach((name, index) => documentRef.documentElement.style.setProperty(`--nyx-c-${name}`, values[index]))
 
-    expect(resolveTheme('nyx', documentRef)).toEqual([
+    expect(resolveTheme(ThemeName.Nyx, documentRef)).toEqual([
       [18 / 255, 52 / 255, 86 / 255],
       [170 / 255, 187 / 255, 204 / 255],
       [10 / 255, 20 / 255, 30 / 255],
@@ -62,7 +63,7 @@ describe('resolveTheme', () => {
     documentRef.documentElement.style.setProperty('--nyx-c-primary', '')
     documentRef.documentElement.style.setProperty('--nyx-c-secondary', 'not-a-color')
 
-    expect(resolveTheme('nyx', documentRef).slice(0, 2)).toEqual([
+    expect(resolveTheme(ThemeName.Nyx, documentRef).slice(0, 2)).toEqual([
       [159 / 255, 80 / 255, 240 / 255],
       [15 / 255, 76 / 255, 117 / 255],
     ])

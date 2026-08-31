@@ -1,6 +1,7 @@
 /* global document, URL */
 
 import { NyxError } from '../errors'
+import { NyxErrorStage } from '../types'
 
 export function resolveMediaUrl(
   source: string,
@@ -12,7 +13,7 @@ export function resolveMediaUrl(
     throw new NyxError(
       'Media source URL is invalid',
       'INVALID_CONFIG',
-      'source',
+       NyxErrorStage.Source,
       cause,
     )
   }

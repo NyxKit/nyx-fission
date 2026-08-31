@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
 import { loadMediaSource } from '../media/source'
+import { MediaType } from '../types'
 
 type MediaElementMethods = {
   remove: ReturnType<typeof vi.fn>
@@ -58,7 +59,7 @@ describe('loadMediaSource', () => {
       image as unknown as HTMLElement,
     )
 
-    const loaded = await loadMediaSource('./photo.jpg', 'image')
+    const loaded = await loadMediaSource('./photo.jpg', MediaType.Image)
 
     expect(assignments).toEqual([
       'crossOrigin:anonymous',
@@ -83,7 +84,7 @@ describe('loadMediaSource', () => {
       image as unknown as HTMLElement,
     )
 
-    const loaded = await loadMediaSource('./photo.jpg', 'image')
+    const loaded = await loadMediaSource('./photo.jpg', MediaType.Image)
     loaded.dispose()
     loaded.dispose()
 
@@ -108,7 +109,7 @@ describe('loadMediaSource', () => {
       video as unknown as HTMLElement,
     )
 
-    await expect(loadMediaSource('clip.mp4', 'video')).rejects.toMatchObject({
+    await expect(loadMediaSource('clip.mp4', MediaType.Video)).rejects.toMatchObject({
       code: 'MEDIA_LOAD_FAILED',
       stage: 'source',
     })
@@ -129,7 +130,7 @@ describe('loadMediaSource', () => {
     vi.spyOn(document, 'createElement').mockReturnValueOnce(
       readyVideo as unknown as HTMLElement,
     )
-    await expect(loadMediaSource('clip.mp4', 'video')).resolves.toMatchObject({
+    await expect(loadMediaSource('clip.mp4', MediaType.Video)).resolves.toMatchObject({
       kind: 'video',
       width: 640,
       height: 360,
@@ -164,7 +165,7 @@ describe('loadMediaSource', () => {
       video as unknown as HTMLElement,
     )
 
-    const error = await loadMediaSource('clip.mp4', 'video').catch(
+    const error = await loadMediaSource('clip.mp4', MediaType.Video).catch(
       (value: unknown) => value,
     )
 
@@ -195,7 +196,7 @@ describe('loadMediaSource', () => {
       video as unknown as HTMLElement,
     )
 
-    const loaded = await loadMediaSource(undefined, 'usermedia')
+    const loaded = await loadMediaSource(undefined, MediaType.Usermedia)
     loaded.dispose()
     loaded.dispose()
 
@@ -214,7 +215,7 @@ describe('loadMediaSource', () => {
       new DOMException('denied', 'NotAllowedError'),
     )
 
-    const error = await loadMediaSource(undefined, 'usermedia').catch(
+    const error = await loadMediaSource(undefined, MediaType.Usermedia).catch(
       (value: unknown) => value,
     )
 
@@ -231,7 +232,7 @@ describe('loadMediaSource', () => {
       value: undefined,
     })
 
-    const error = await loadMediaSource(undefined, 'usermedia').catch(
+    const error = await loadMediaSource(undefined, MediaType.Usermedia).catch(
       (value: unknown) => value,
     )
 
@@ -243,7 +244,7 @@ describe('loadMediaSource', () => {
     const cause = new DOMException('No camera', 'NotFoundError')
     vi.spyOn(navigator.mediaDevices, 'getUserMedia').mockRejectedValueOnce(cause)
 
-    const error = await loadMediaSource(undefined, 'usermedia').catch(
+    const error = await loadMediaSource(undefined, MediaType.Usermedia).catch(
       (value: unknown) => value,
     )
 
@@ -271,7 +272,7 @@ describe('loadMediaSource', () => {
       video as unknown as HTMLElement,
     )
 
-    const error = await loadMediaSource(undefined, 'usermedia').catch(
+    const error = await loadMediaSource(undefined, MediaType.Usermedia).catch(
       (value: unknown) => value,
     )
 
@@ -298,7 +299,7 @@ describe('loadMediaSource', () => {
       video as unknown as HTMLElement,
     )
 
-    const loaded = await loadMediaSource('clip.mp4', 'video')
+    const loaded = await loadMediaSource('clip.mp4', MediaType.Video)
     loaded.dispose()
     loaded.dispose()
 
@@ -319,7 +320,7 @@ describe('loadMediaSource', () => {
       image as unknown as HTMLElement,
     )
 
-    const error = await loadMediaSource('photo.jpg', 'image').catch(
+    const error = await loadMediaSource('photo.jpg', MediaType.Image).catch(
       (value: unknown) => value,
     )
 
@@ -335,7 +336,7 @@ describe('loadMediaSource', () => {
     })
     vi.spyOn(document, 'createElement').mockReturnValueOnce(image as unknown as HTMLElement)
     const controller = new AbortController()
-    const loading = loadMediaSource('photo.jpg', 'image', controller.signal)
+    const loading = loadMediaSource('photo.jpg', MediaType.Image, controller.signal)
 
     controller.abort()
 
@@ -356,7 +357,7 @@ describe('loadMediaSource', () => {
     })
     vi.spyOn(document, 'createElement').mockReturnValueOnce(video as unknown as HTMLElement)
     const controller = new AbortController()
-    const loading = loadMediaSource('clip.mp4', 'video', controller.signal)
+    const loading = loadMediaSource('clip.mp4', MediaType.Video, controller.signal)
 
     controller.abort()
 
@@ -380,7 +381,7 @@ describe('loadMediaSource', () => {
     })
     vi.spyOn(document, 'createElement').mockReturnValueOnce(video as unknown as HTMLElement)
     const controller = new AbortController()
-    const loading = loadMediaSource(undefined, 'usermedia', controller.signal)
+    const loading = loadMediaSource(undefined, MediaType.Usermedia, controller.signal)
 
     controller.abort()
     await expect(loading).rejects.toMatchObject({ code: 'DESTROYED', stage: 'source' })

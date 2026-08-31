@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NyxError } from '../errors'
+import { NyxErrorStage } from '../types'
 
 describe('NyxError', () => {
   it('preserves its code, stage, and cause', () => {
@@ -7,7 +8,7 @@ describe('NyxError', () => {
     const error = new NyxError(
       'Media failed to load',
       'MEDIA_CORS_FAILED',
-      'source',
+      NyxErrorStage.Source,
       cause,
     )
 

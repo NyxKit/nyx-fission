@@ -1,6 +1,7 @@
 /* global document, HTMLCanvasElement, CanvasRenderingContext2D, ImageData, DOMException */
 
 import { NyxError } from './errors'
+import { NyxErrorStage } from './types'
 import type { LoadedSource } from './media/source'
 
 // Keep pixel and downstream particle allocations bounded for high-resolution media.
@@ -36,7 +37,7 @@ export class FrameSampler {
       throw new NyxError(
         'Could not create a 2D sampling context',
         'MEDIA_LOAD_FAILED',
-        'sampling',
+         NyxErrorStage.Sampling,
       )
     }
     this.context = context
@@ -47,7 +48,7 @@ export class FrameSampler {
       throw new NyxError(
         'Frame sampler has been disposed',
         'DESTROYED',
-        'sampling',
+         NyxErrorStage.Sampling,
       )
     }
 
@@ -74,7 +75,7 @@ export class FrameSampler {
         throw new NyxError(
           'Media pixels are blocked by cross-origin policy',
           'MEDIA_CORS_FAILED',
-          'sampling',
+           NyxErrorStage.Sampling,
           cause,
         )
       }

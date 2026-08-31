@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { NyxEventEmitter } from '../events'
 import type { NyxEventMap } from '../types'
+import { NyxErrorStage } from '../types'
 
 describe('NyxEventEmitter', () => {
   it('emits payloads and removes listeners', () => {
@@ -8,7 +9,7 @@ describe('NyxEventEmitter', () => {
     const listener = vi.fn()
 
     emitter.on('error', listener)
-    emitter.emit('error', { error: new Error('cors'), stage: 'source' })
+    emitter.emit('error', { error: new Error('cors'), stage: NyxErrorStage.Source })
 
     expect(listener).toHaveBeenCalledOnce()
     expect(listener).toHaveBeenCalledWith({
@@ -17,7 +18,7 @@ describe('NyxEventEmitter', () => {
     })
 
     emitter.off('error', listener)
-    emitter.emit('error', { error: new Error('again'), stage: 'source' })
+    emitter.emit('error', { error: new Error('again'), stage: NyxErrorStage.Source })
 
     expect(listener).toHaveBeenCalledOnce()
   })
@@ -26,7 +27,7 @@ describe('NyxEventEmitter', () => {
     const emitter = new NyxEventEmitter<NyxEventMap>()
     const first = vi.fn()
     const second = vi.fn()
-    const payload = { error: new Error('failed'), stage: 'sampling' as const }
+    const payload = { error: new Error('failed'), stage: NyxErrorStage.Sampling }
 
     emitter.on('error', first)
     emitter.on('error', second)

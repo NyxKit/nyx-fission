@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest'
+import {
+  MediaType,
+  NyxErrorStage,
+  NyxEventName,
+  NyxFission,
+  ThemeName,
+} from '../index'
+
+describe('public string enums', () => {
+  it('exposes the documented string values at runtime', () => {
+    expect(MediaType).toEqual({ Image: 'image', Video: 'video', Usermedia: 'usermedia' })
+    expect(ThemeName).toEqual({ Grayscale: 'grayscale', Discodip: 'discodip', Pastel: 'pastel', Nyx: 'nyx' })
+    expect(NyxEventName).toEqual({ Loading: 'loading', Ready: 'ready', Error: 'error', Destroy: 'destroy' })
+    expect(NyxErrorStage).toEqual({ Target: 'target', Source: 'source', Sampling: 'sampling', Rendering: 'rendering', Lifecycle: 'lifecycle' })
+  })
+
+  it('continues validating invalid runtime configuration', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as MediaType })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'source' }),
+    )
+  })
+})

@@ -1,5 +1,17 @@
-export type MediaType = 'image' | 'video' | 'usermedia'
-export type ThemeName = 'grayscale' | 'discodip' | 'pastel' | 'nyx'
+/* eslint-disable no-unused-vars */
+
+export enum MediaType {
+  Image = 'image',
+  Video = 'video',
+  Usermedia = 'usermedia',
+}
+
+export enum ThemeName {
+  Grayscale = 'grayscale',
+  Discodip = 'discodip',
+  Pastel = 'pastel',
+  Nyx = 'nyx',
+}
 
 export interface NyxFissionConfig {
   source?: string
@@ -8,14 +20,20 @@ export interface NyxFissionConfig {
   querySelector?: string
 }
 
-export type NyxEventName = 'loading' | 'ready' | 'error' | 'destroy'
+export enum NyxEventName {
+  Loading = 'loading',
+  Ready = 'ready',
+  Error = 'error',
+  Destroy = 'destroy',
+}
 
-export type NyxErrorStage =
-  | 'target'
-  | 'source'
-  | 'sampling'
-  | 'rendering'
-  | 'lifecycle'
+export enum NyxErrorStage {
+  Target = 'target',
+  Source = 'source',
+  Sampling = 'sampling',
+  Rendering = 'rendering',
+  Lifecycle = 'lifecycle',
+}
 
 export interface NyxErrorEvent {
   error: Error

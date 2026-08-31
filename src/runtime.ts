@@ -13,6 +13,7 @@ import {
 import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
 import { NyxError } from './errors'
+import { NyxErrorStage } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_Z = 2
@@ -69,7 +70,7 @@ export class ThreeRuntime {
     } catch (cause) {
       this.geometry?.dispose()
       this.material?.dispose()
-      throw new NyxError('WebGL renderer is unavailable', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+      throw new NyxError('WebGL renderer is unavailable', 'RENDERER_UNAVAILABLE', NyxErrorStage.Rendering, cause)
     }
 
     let observer: ResizeObserver | undefined
@@ -79,7 +80,7 @@ export class ThreeRuntime {
       this.geometry?.dispose()
       this.material?.dispose()
       this.renderer?.dispose()
-      throw new NyxError('Initial renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+      throw new NyxError('Initial renderer resize failed', 'RENDERER_UNAVAILABLE', NyxErrorStage.Rendering, cause)
     }
     try {
       observer = new ResizeObserver((entries) => {
@@ -91,7 +92,7 @@ export class ThreeRuntime {
         try {
           this.resize(width, height)
         } catch (cause) {
-          const error = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+          const error = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', NyxErrorStage.Rendering, cause)
           this.dispose()
           this.errorCallback?.(error)
         }
@@ -103,18 +104,18 @@ export class ThreeRuntime {
       this.geometry?.dispose()
       this.material?.dispose()
       this.renderer?.dispose()
-      throw new NyxError('Resize observer setup failed', 'RENDERER_UNAVAILABLE', 'rendering', cause)
+      throw new NyxError('Resize observer setup failed', 'RENDERER_UNAVAILABLE', NyxErrorStage.Rendering, cause)
     }
   }
 
   setField(field: ParticleField): void {
     if (this.disposed) {
-      throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+      throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
     }
     const geometry = this.geometry
     const points = this.points
     if (!geometry || !points) {
-      throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+      throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
     }
     if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length) {
       this.positionAttribute.array.set(field.positions)
@@ -152,7 +153,7 @@ export class ThreeRuntime {
         const renderer = this.renderer
         const scene = this.scene
         const camera = this.camera
-        if (!renderer || !scene || !camera) throw new NyxError('Runtime has been disposed', 'DESTROYED', 'rendering')
+        if (!renderer || !scene || !camera) throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
         renderer.render(scene, camera)
         if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
       } catch (error) {

@@ -1,28 +1,28 @@
 /* global document, URL */
 
 import { NyxError } from '../errors'
-import type { MediaType } from '../types'
+import { MediaType, NyxErrorStage } from '../types'
 
 const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'])
 const videoExtensions = new Set(['mp4', 'webm', 'ogg', 'mov', 'm4v'])
 
-export function inferMediaType(url: string): Exclude<MediaType, 'usermedia'> {
+export function inferMediaType(url: string): MediaType.Image | MediaType.Video {
   try {
     const pathname = new URL(url, document.baseURI).pathname
     const extension = pathname.split('.').pop()?.toLowerCase()
 
     if (extension && imageExtensions.has(extension)) {
-      return 'image'
+      return MediaType.Image
     }
 
     if (extension && videoExtensions.has(extension)) {
-      return 'video'
+      return MediaType.Video
     }
   } catch (cause) {
     throw new NyxError(
       'Media source type cannot be inferred from the URL',
       'MEDIA_TYPE_UNKNOWN',
-      'source',
+       NyxErrorStage.Source,
       cause,
     )
   }
@@ -30,7 +30,7 @@ export function inferMediaType(url: string): Exclude<MediaType, 'usermedia'> {
   throw new NyxError(
     'Media source type cannot be inferred from the URL',
     'MEDIA_TYPE_UNKNOWN',
-    'source',
+     NyxErrorStage.Source,
   )
 }
 

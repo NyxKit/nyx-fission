@@ -10,30 +10,30 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import type { MediaType, NyxEventMap, NyxFissionConfig, ThemeName } from './types'
+import { MediaType, NyxErrorStage, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
-const mediaTypes: readonly MediaType[] = ['image', 'video', 'usermedia']
-const themeNames: readonly ThemeName[] = ['grayscale', 'discodip', 'pastel', 'nyx']
+const mediaTypes: readonly MediaType[] = Object.values(MediaType)
+const themeNames: readonly ThemeName[] = Object.values(ThemeName)
 
 function validateConfig(config: NyxFissionConfig): void {
   if (config.type !== undefined && !mediaTypes.includes(config.type)) {
-    throw new NyxError(`Unsupported media type: ${String(config.type)}`, 'INVALID_CONFIG', 'source')
+    throw new NyxError(`Unsupported media type: ${String(config.type)}`, 'INVALID_CONFIG', NyxErrorStage.Source)
   }
   if (config.theme !== undefined && !themeNames.includes(config.theme)) {
-    throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', 'sampling')
+    throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
-  if (config.type !== 'usermedia' && !config.source) {
-    throw new NyxError('A media source is required', 'INVALID_CONFIG', 'source')
+  if (config.type !== MediaType.Usermedia && !config.source) {
+    throw new NyxError('A media source is required', 'INVALID_CONFIG', NyxErrorStage.Source)
   }
 }
 
 function lifecycleError(message: string, cause?: unknown): NyxError {
-  return new NyxError(message, 'DESTROYED', 'lifecycle', cause)
+  return new NyxError(message, 'DESTROYED', NyxErrorStage.Lifecycle, cause)
 }
 
-function asNyxError(error: unknown, stage: 'target' | 'source' | 'sampling' | 'rendering'): NyxError {
+function asNyxError(error: unknown, stage: NyxErrorStage.Target | NyxErrorStage.Source | NyxErrorStage.Sampling | NyxErrorStage.Rendering): NyxError {
   if (error instanceof NyxError) return error
   return new NyxError('NyxFission could not initialize', 'MEDIA_LOAD_FAILED', stage, error)
 }
@@ -91,7 +91,7 @@ export class NyxFission {
     if (this.state === 'destroyed') throw lifecycleError('NyxFission has been destroyed')
     if (this.state === 'failed') throw this.failureError
     if (this.target !== undefined || this.mountRequested) {
-      throw new NyxError('NyxFission can only be mounted once', 'INVALID_TARGET', 'lifecycle')
+      throw new NyxError('NyxFission can only be mounted once', 'INVALID_TARGET', NyxErrorStage.Lifecycle)
     }
 
     this.mountRequested = true
@@ -102,7 +102,7 @@ export class NyxFission {
       try {
         this.initialise(validateCanvas(canvas))
       } catch (error) {
-        this.fail(asNyxError(error, 'target'))
+        this.fail(asNyxError(error, NyxErrorStage.Target))
       }
     })
   }
@@ -158,7 +158,7 @@ export class NyxFission {
         if (this.targetResolution === targetResolution) this.initialise(canvas)
       },
       (error: unknown) => {
-        if (this.targetResolution === targetResolution) this.fail(asNyxError(error, 'target'))
+        if (this.targetResolution === targetResolution) this.fail(asNyxError(error, NyxErrorStage.Target))
       },
     )
   }
@@ -190,11 +190,11 @@ export class NyxFission {
 
   private renderFirstFrame(canvas: HTMLCanvasElement): void {
     const sampler = this.sampler
-    if (!sampler) throw new NyxError('Frame sampler is unavailable', 'MEDIA_LOAD_FAILED', 'sampling')
+    if (!sampler) throw new NyxError('Frame sampler is unavailable', 'MEDIA_LOAD_FAILED', NyxErrorStage.Sampling)
     const frame = sampler.sample()
     this.frameWidth = frame.width
     this.frameHeight = frame.height
-    this.field = createParticleField(frame, resolveTheme(this.config.theme ?? 'nyx'))
+     this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx))
     this.runtime = new ThreeRuntime(canvas, this.field, (error) => this.handleRuntimeError(error))
   }
 
@@ -211,24 +211,24 @@ export class NyxFission {
       if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
         this.frameWidth = frame.width
         this.frameHeight = frame.height
-        this.field = createParticleField(frame, resolveTheme(this.config.theme ?? 'nyx'))
+         this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx))
         runtime.setField(this.field)
       } else {
         updateParticleField(this.field, frame)
         runtime.setField(this.field)
       }
     } catch (error) {
-      this.fail(asNyxError(error, 'sampling'))
+      this.fail(asNyxError(error, NyxErrorStage.Sampling))
     }
   }
 
-  private stageFor(error: unknown): 'target' | 'source' | 'sampling' | 'rendering' {
-    if (error instanceof NyxError) return error.stage === 'target' || error.stage === 'source' || error.stage === 'sampling' || error.stage === 'rendering' ? error.stage : 'source'
-    return this.sampler ? 'sampling' : 'source'
+  private stageFor(error: unknown): NyxErrorStage.Target | NyxErrorStage.Source | NyxErrorStage.Sampling | NyxErrorStage.Rendering {
+    if (error instanceof NyxError) return error.stage === NyxErrorStage.Target || error.stage === NyxErrorStage.Source || error.stage === NyxErrorStage.Sampling || error.stage === NyxErrorStage.Rendering ? error.stage : NyxErrorStage.Source
+    return this.sampler ? NyxErrorStage.Sampling : NyxErrorStage.Source
   }
 
   private handleRuntimeError(error: unknown): void {
-    this.fail(asNyxError(error, 'rendering'))
+    this.fail(asNyxError(error, NyxErrorStage.Rendering))
   }
 
   private fail(error: NyxError): void {

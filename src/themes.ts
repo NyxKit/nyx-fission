@@ -1,6 +1,6 @@
 /* global document, getComputedStyle, Document */
 
-import type { ThemeName } from './types'
+import { ThemeName } from './types'
 
 export type Color = readonly [number, number, number]
 
@@ -30,9 +30,9 @@ function parseColor(value: string): Color | undefined {
 }
 
 export function resolveTheme(name: ThemeName, documentRef: Document = document): readonly Color[] {
-  if (name === 'grayscale') return grayscale
-  if (name === 'discodip') return discodip
-  if (name === 'pastel') return pastel
+  if (name === ThemeName.Grayscale) return grayscale
+  if (name === ThemeName.Discodip) return discodip
+  if (name === ThemeName.Pastel) return pastel
 
   const root = documentRef.documentElement
   const computed = documentRef.defaultView?.getComputedStyle(root) ?? getComputedStyle(root)

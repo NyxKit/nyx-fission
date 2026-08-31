@@ -1,4 +1,4 @@
-import type { NyxErrorStage } from './types'
+import { NyxErrorStage } from './types'
 
 export type { NyxErrorStage } from './types'
 

@@ -1,7 +1,7 @@
 /* global document, navigator, HTMLImageElement, HTMLVideoElement, MediaStream, Event, AbortSignal */
 
 import { NyxError } from '../errors'
-import type { MediaType } from '../types'
+import { MediaType, NyxErrorStage, type MediaType as MediaTypeValue } from '../types'
 import { resolveMediaUrl } from './url'
 
 type ImageSource = {
@@ -28,13 +28,13 @@ function mediaLoadError(cause: unknown): NyxError {
   return new NyxError(
     'Media source failed to load. Check the source and browser media support.',
     'MEDIA_LOAD_FAILED',
-    'source',
+    NyxErrorStage.Source,
     cause,
   )
 }
 
 function mediaAbortError(): NyxError {
-  return new NyxError('Media source loading was cancelled', 'DESTROYED', 'source')
+  return new NyxError('Media source loading was cancelled', 'DESTROYED', NyxErrorStage.Source)
 }
 
 function removeElement(element: { remove: () => void }): void {
@@ -258,7 +258,7 @@ async function loadUserMedia(signal?: AbortSignal): Promise<VideoSource> {
       throw new NyxError(
         'Webcam permission was denied or the page is not allowed to use the camera',
         'WEBCAM_PERMISSION_DENIED',
-        'source',
+         NyxErrorStage.Source,
         cause,
       )
     }
@@ -313,13 +313,13 @@ async function loadUserMedia(signal?: AbortSignal): Promise<VideoSource> {
 
 export function loadMediaSource(
   source: string | undefined,
-  type: MediaType,
+  type: MediaTypeValue,
   signal?: AbortSignal,
 ): Promise<LoadedSource> {
-  if (type === 'usermedia') {
+  if (type === MediaType.Usermedia) {
     return loadUserMedia(signal)
   }
 
   const url = resolveMediaUrl(source ?? '')
-  return type === 'image' ? loadUrlImage(url, signal) : loadUrlVideo(url, signal)
+  return type === MediaType.Image ? loadUrlImage(url, signal) : loadUrlVideo(url, signal)
 }

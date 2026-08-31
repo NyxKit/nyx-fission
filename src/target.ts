@@ -1,7 +1,7 @@
 /* global Document, Element, HTMLCanvasElement, MutationObserver, document */
 
 import { NyxError } from './errors'
-import type { NyxFissionConfig } from './types'
+import { NyxErrorStage, type NyxFissionConfig } from './types'
 
 export interface TargetResolution {
   promise: Promise<HTMLCanvasElement>
@@ -16,7 +16,7 @@ export function validateCanvas(value: unknown): HTMLCanvasElement {
   throw new NyxError(
     'Target must be an HTMLCanvasElement',
     'INVALID_TARGET',
-    'target',
+    NyxErrorStage.Target,
   )
 }
 
@@ -64,7 +64,7 @@ export function resolveCanvas(
         new NyxError(
           'Target selector is invalid',
           'INVALID_TARGET',
-          'target',
+          NyxErrorStage.Target,
           cause,
         ),
       )
@@ -90,7 +90,7 @@ export function resolveCanvas(
         new NyxError(
           'Canvas target was not found',
           'TARGET_NOT_FOUND',
-          'target',
+           NyxErrorStage.Target,
         ),
       )
     }
@@ -112,7 +112,7 @@ export function resolveCanvas(
         new NyxError(
           'Canvas target was not found',
           'TARGET_NOT_FOUND',
-          'target',
+           NyxErrorStage.Target,
         ),
       )
     }

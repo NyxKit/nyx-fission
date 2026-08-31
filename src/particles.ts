@@ -2,21 +2,22 @@
 
 import type { Color } from './themes'
 import { NyxError } from './errors'
+import { NyxErrorStage } from './types'
 
 const SAMPLE_STEP = 3
 
 function validateTheme(theme: readonly Color[]): void {
   if (!theme || theme.length === 0 || theme.some((color) => !Array.isArray(color) || color.length !== 3 || color.some((channel) => !Number.isFinite(channel) || channel < 0 || channel > 1))) {
-    throw new NyxError('Particle theme must contain at least one valid RGB color', 'INVALID_CONFIG', 'sampling')
+    throw new NyxError('Particle theme must contain at least one valid RGB color', 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
 }
 
 function validateImageData(imageData: ImageData, width?: number, height?: number): void {
   if (width !== undefined && (imageData.width !== width || imageData.height !== height)) {
-    throw new NyxError('Particle frame dimensions changed; rebuild the particle field', 'INVALID_CONFIG', 'sampling')
+    throw new NyxError('Particle frame dimensions changed; rebuild the particle field', 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
   if (imageData.width <= 0 || imageData.height <= 0 || imageData.data.length < imageData.width * imageData.height * 4) {
-    throw new NyxError('Particle frame does not contain enough pixel data', 'INVALID_CONFIG', 'sampling')
+    throw new NyxError('Particle frame does not contain enough pixel data', 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
 }
 

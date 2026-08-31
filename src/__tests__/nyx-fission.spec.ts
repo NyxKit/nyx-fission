@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
+import { MediaType, NyxErrorStage, ThemeName } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -74,7 +75,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('rejects an invalid media type before starting work', () => {
-    expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as 'image' })).toThrowError(
+    expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as MediaType })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'source' }),
     )
     expect(mocks.resolveMediaType).not.toHaveBeenCalled()
@@ -82,7 +83,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('rejects an invalid theme before starting work', () => {
-    expect(() => new NyxFission({ source: './portrait.jpg', theme: 'electric' as 'nyx' })).toThrowError(
+    expect(() => new NyxFission({ source: './portrait.jpg', theme: 'electric' as ThemeName })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
     expect(mocks.resolveMediaType).not.toHaveBeenCalled()
@@ -233,7 +234,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('emits one structured error and rejects ready with the original NyxError', async () => {
-    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', 'source')
+    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', NyxErrorStage.Source)
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
@@ -247,7 +248,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('rejects later mounts with the original terminal failure', async () => {
-    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', 'source')
+    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', NyxErrorStage.Source)
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
@@ -271,7 +272,7 @@ describe('NyxFission orchestration', () => {
     expect(mocks.resolveMediaType).toHaveBeenCalledWith(undefined, 'http://localhost:3000/portrait.jpg')
     inferred.destroy()
 
-    const explicit = new NyxFission({ source: './portrait.jpg', type: 'video' })
+    const explicit = new NyxFission({ source: './portrait.jpg', type: MediaType.Video })
     explicit.mount(canvas())
     await explicit.ready
     expect(mocks.resolveMediaType).toHaveBeenCalledWith('video', 'http://localhost:3000/portrait.jpg')
@@ -368,7 +369,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('reports asynchronous runtime failures after ready without throwing', async () => {
-    const failure = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', 'rendering')
+    const failure = new NyxError('Renderer resize failed', 'RENDERER_UNAVAILABLE', NyxErrorStage.Rendering)
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
     const destroys = vi.fn()
