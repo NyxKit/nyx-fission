@@ -16,9 +16,12 @@ stable public API.
 Explicit mounting:
 
 ```ts
+import { MediaType, NyxFission, ThemeName } from 'nyx-fission'
+
 const particles = new NyxFission({
   source: '/media/portrait.jpg',
-  theme: 'grayscale',
+  type: MediaType.Image,
+  theme: ThemeName.Grayscale,
 })
 
 particles.mount(canvas)
@@ -27,10 +30,13 @@ particles.mount(canvas)
 Automatic mounting:
 
 ```ts
+import { MediaType, NyxFission, ThemeName } from 'nyx-fission'
+
 const particles = new NyxFission({
   source: '/media/loop.mp4',
+  type: MediaType.Video,
   querySelector: '#canvas',
-  theme: 'nyx',
+  theme: ThemeName.Nyx,
 })
 ```
 

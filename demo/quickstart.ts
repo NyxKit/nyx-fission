@@ -1,11 +1,12 @@
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
 
 export function buildQuickstart(source: QuickstartSource, sourceUrl: string): string {
+  const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
-    ? "type: 'usermedia'"
-    : `type: '${source}', source: ${JSON.stringify(sourceUrl)}`
+    ? 'type: MediaType.Usermedia'
+    : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
 
-  return `import { NyxFission } from 'nyx-fission'
+  return `import { MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${sourceConfig} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')

@@ -13,11 +13,12 @@ pnpm add nyx-fission three
 ## Quick start
 
 ```ts
-import { NyxFission } from 'nyx-fission'
+import { MediaType, NyxFission, ThemeName } from 'nyx-fission'
 
 const particles = new NyxFission({
   source: './portrait.jpg',
-  theme: 'nyx',
+  type: MediaType.Image,
+  theme: ThemeName.Nyx,
 })
 
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')
@@ -51,10 +52,12 @@ const particles = new NyxFission({
 Use `ready` as a promise or subscribe to lifecycle events. `on` and `off` use the same listener reference.
 
 ```ts
+import { NyxEventName } from 'nyx-fission'
+
 const onReady = () => console.log('particle field ready')
-particles.on('ready', onReady)
-particles.on('error', ({ error, stage }) => console.error(stage, error))
-particles.off('ready', onReady)
+particles.on(NyxEventName.Ready, onReady)
+particles.on(NyxEventName.Error, ({ error, stage }) => console.error(stage, error))
+particles.off(NyxEventName.Ready, onReady)
 
 await particles.ready
 particles.destroy()
@@ -66,7 +69,7 @@ The event names are `loading`, `ready`, `error`, and `destroy`. A failed `ready`
 
 - `image`: an image URL, including same-origin relative URLs.
 - `video`: a video URL that the browser can load and sample.
-- `usermedia`: an opt-in webcam stream, configured with `{ type: 'usermedia' }`.
+- `usermedia`: an opt-in webcam stream, configured with `{ type: MediaType.Usermedia }`.
 
 Available themes are `nyx`, `grayscale`, `discodip`, and `pastel`. The `nyx` theme reads Nyx semantic CSS colors when available and falls back to the package palette.
 

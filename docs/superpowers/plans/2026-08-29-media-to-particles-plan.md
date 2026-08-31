@@ -114,8 +114,17 @@ plugin.
 `src/types.ts` must define these exact public shapes:
 
 ```ts
-export type MediaType = 'image' | 'video' | 'usermedia'
-export type ThemeName = 'grayscale' | 'discodip' | 'pastel' | 'nyx'
+export enum MediaType {
+  Image = 'image',
+  Video = 'video',
+  Usermedia = 'usermedia',
+}
+export enum ThemeName {
+  Grayscale = 'grayscale',
+  Discodip = 'discodip',
+  Pastel = 'pastel',
+  Nyx = 'nyx',
+}
 
 export interface NyxFissionConfig {
   source?: string
@@ -124,18 +133,31 @@ export interface NyxFissionConfig {
   querySelector?: string
 }
 
-export type NyxEventName = 'loading' | 'ready' | 'error' | 'destroy'
+export enum NyxEventName {
+  Loading = 'loading',
+  Ready = 'ready',
+  Error = 'error',
+  Destroy = 'destroy',
+}
+
+export enum NyxErrorStage {
+  Target = 'target',
+  Source = 'source',
+  Sampling = 'sampling',
+  Rendering = 'rendering',
+  Lifecycle = 'lifecycle',
+}
 
 export interface NyxErrorEvent {
   error: Error
-  stage: 'target' | 'source' | 'sampling' | 'rendering' | 'lifecycle'
+  stage: NyxErrorStage
 }
 
 export type NyxEventMap = {
-  loading: void
-  ready: void
-  error: NyxErrorEvent
-  destroy: void
+  [NyxEventName.Loading]: void
+  [NyxEventName.Ready]: void
+  [NyxEventName.Error]: NyxErrorEvent
+  [NyxEventName.Destroy]: void
 }
 ```
 
@@ -170,14 +192,16 @@ emitter supports multiple listeners, `off`, one-shot payload delivery, and
 listener exceptions not stopping later listeners.
 
 ```ts
+import { NyxErrorStage, NyxEventName } from '../types'
+
 it('emits payloads and removes listeners', () => {
   const emitter = new NyxEventEmitter<NyxEventMap>()
   const listener = vi.fn()
-  emitter.on('error', listener)
-  emitter.emit('error', { error: new Error('cors'), stage: 'source' })
+  emitter.on(NyxEventName.Error, listener)
+  emitter.emit(NyxEventName.Error, { error: new Error('cors'), stage: NyxErrorStage.Source })
   expect(listener).toHaveBeenCalledOnce()
-  emitter.off('error', listener)
-  emitter.emit('error', { error: new Error('again'), stage: 'source' })
+  emitter.off(NyxEventName.Error, listener)
+  emitter.emit(NyxEventName.Error, { error: new Error('again'), stage: NyxErrorStage.Source })
   expect(listener).toHaveBeenCalledOnce()
 })
 ```
@@ -224,6 +248,8 @@ git commit -m "feat: add typed lifecycle primitives"
 Cover `document.baseURI` behavior:
 
 ```ts
+import { MediaType } from '../types'
+
 it('resolves relative source against the document base', () => {
   expect(resolveMediaUrl('./media/a.jpg', 'https://site.test/app/')).toBe(
     'https://site.test/app/media/a.jpg',
@@ -231,8 +257,8 @@ it('resolves relative source against the document base', () => {
 })
 
 it('infers formats case-insensitively and accepts query strings', () => {
-  expect(inferMediaType('https://cdn.test/LOOP.MP4?cache=1')).toBe('video')
-  expect(inferMediaType('/assets/photo.webp')).toBe('image')
+  expect(inferMediaType('https://cdn.test/LOOP.MP4?cache=1')).toBe(MediaType.Video)
+  expect(inferMediaType('/assets/photo.webp')).toBe(MediaType.Image)
 })
 ```
 
