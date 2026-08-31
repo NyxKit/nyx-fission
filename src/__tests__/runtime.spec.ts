@@ -246,8 +246,38 @@ describe('ThreeRuntime', () => {
 
     expect(camera.aspect).toBe(360 / 640)
     expect(camera.position.z).toBe(initialZ)
-    expect(camera.near).toBeLessThan(initialZ - 0.75)
+    const nearestPlaneDistance = initialZ - 0.75
+    const visibleHalfHeight = nearestPlaneDistance * Math.tan((camera.fov * Math.PI) / 360)
+    expect(visibleHalfHeight).toBeGreaterThanOrEqual(0.5)
+    expect(visibleHalfHeight * camera.aspect).toBeGreaterThanOrEqual(camera.aspect / 2)
+    expect(camera.near).toBeLessThan(nearestPlaneDistance)
     expect(camera.far).toBeGreaterThan(initialZ + 0.75)
+    runtime.dispose()
+  })
+
+  it('frames the full field on landscape resize as well', () => {
+    const runtime = new ThreeRuntime(canvas(), field(), 0.75)
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
+
+    resizeCallback([{ contentRect: { width: 1280, height: 360 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
+
+    const nearestPlaneDistance = camera.position.z - 0.75
+    const visibleHalfHeight = nearestPlaneDistance * Math.tan((camera.fov * Math.PI) / 360)
+    expect(visibleHalfHeight).toBeGreaterThanOrEqual(0.5)
+    expect(visibleHalfHeight * camera.aspect).toBeGreaterThanOrEqual(camera.aspect / 2)
+    runtime.dispose()
+  })
+
+  it('keeps camera framing finite for the largest finite depth', () => {
+    const runtime = new ThreeRuntime(canvas(), field(), Number.MAX_VALUE)
+    const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
+
+    expect(Number.isFinite(camera.position.z)).toBe(true)
+    expect(camera.position.z).toBeGreaterThan(0)
+    expect(Number.isFinite(camera.near)).toBe(true)
+    expect(camera.near).toBeGreaterThan(0)
+    expect(Number.isFinite(camera.far)).toBe(true)
+    expect(camera.far).toBeGreaterThan(camera.near)
     runtime.dispose()
   })
 
@@ -394,6 +424,8 @@ describe('ThreeRuntime', () => {
 
     expect(geometry.dispose).toHaveBeenCalledOnce()
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledTimes(2)
+    const replacementGeometry = vi.mocked(three.BufferGeometry).mock.results[1].value
+    expect(replacementGeometry.attributes.luminance.array).toHaveLength(2)
     expect(vi.mocked(three.Points)).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial)).toHaveBeenCalledOnce()
     runtime.dispose()

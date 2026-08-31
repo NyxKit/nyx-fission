@@ -19,6 +19,7 @@ import type { ParticleField } from './particles'
 const CAMERA_FOV = 50
 const CAMERA_GAP = 0.1
 const FIELD_HALF_HEIGHT = 0.5
+const MAX_FRAMING_DEPTH = Number.MAX_VALUE / 4
 
 export type FrameCallback = (_time: number) => void
 type ErrorCallback = (_error: unknown) => void
@@ -30,9 +31,13 @@ function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number 
   }
 }
 
-function cameraFrame(depth: number): { positionZ: number; near: number; far: number } {
-  const absoluteDepth = Math.abs(depth)
-  const frameDistance = FIELD_HALF_HEIGHT / Math.tan((CAMERA_FOV * Math.PI) / 360)
+function cameraFrame(aspect: number, depth: number): { positionZ: number; near: number; far: number } {
+  const absoluteDepth = Math.min(Math.abs(depth), MAX_FRAMING_DEPTH)
+  const verticalHalfAngle = (CAMERA_FOV * Math.PI) / 360
+  const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * aspect)
+  const verticalFrameDistance = FIELD_HALF_HEIGHT / Math.tan(verticalHalfAngle)
+  const horizontalFrameDistance = (aspect / 2) / Math.tan(horizontalHalfAngle)
+  const frameDistance = Math.max(verticalFrameDistance, horizontalFrameDistance)
   const positionZ = frameDistance + absoluteDepth + CAMERA_GAP
   return {
     positionZ,
@@ -66,7 +71,7 @@ export class ThreeRuntime {
     this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
-    const frame = cameraFrame(depth)
+    const frame = cameraFrame(size.width / size.height, depth)
     this.camera = new PerspectiveCamera(CAMERA_FOV, size.width / size.height, frame.near, frame.far)
     this.camera.position.z = frame.positionZ
     this.updateCameraFraming(size.width / size.height, depth)
@@ -235,7 +240,7 @@ export class ThreeRuntime {
   private updateCameraFraming(aspect: number, depth: number): void {
     const camera = this.camera
     if (!camera) return
-    const frame = cameraFrame(depth)
+    const frame = cameraFrame(aspect, depth)
     camera.aspect = aspect
     camera.position.z = frame.positionZ
     camera.near = frame.near
