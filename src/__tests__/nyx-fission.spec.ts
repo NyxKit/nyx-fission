@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { MediaType, NyxErrorStage, ThemeName } from '../types'
+import { MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -116,7 +116,7 @@ describe('NyxFission orchestration', () => {
     Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' })
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#late-particles' })
     const loading = vi.fn()
-    particles.on('loading', loading)
+    particles.on(NyxEventName.Loading, loading)
 
     expect(loading).not.toHaveBeenCalled()
     await Promise.resolve()
@@ -136,7 +136,7 @@ describe('NyxFission orchestration', () => {
   it('emits loading once before automatic target failure', async () => {
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
     const loading = vi.fn()
-    particles.on('loading', loading)
+    particles.on(NyxEventName.Loading, loading)
 
     expect(loading).not.toHaveBeenCalled()
     await expect(particles.ready).rejects.toMatchObject({ code: 'INVALID_TARGET' })
@@ -148,7 +148,7 @@ describe('NyxFission orchestration', () => {
     const lookup = vi.spyOn(document, 'querySelector')
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#missing' })
     const loading = vi.fn()
-    particles.on('loading', loading)
+    particles.on(NyxEventName.Loading, loading)
 
     expect(lookup).not.toHaveBeenCalled()
     expect(loading).not.toHaveBeenCalled()
@@ -162,7 +162,7 @@ describe('NyxFission orchestration', () => {
   it('delivers one loading event to listeners for an explicit mount', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
-    particles.on('loading', loading)
+    particles.on(NyxEventName.Loading, loading)
 
     particles.mount(canvas())
     expect(loading).not.toHaveBeenCalled()
@@ -175,7 +175,7 @@ describe('NyxFission orchestration', () => {
   it('defers explicit target validation and source work until after loading', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
-    particles.on('loading', loading)
+    particles.on(NyxEventName.Loading, loading)
 
     particles.mount(document.createElement('div') as unknown as HTMLCanvasElement)
 
@@ -189,7 +189,7 @@ describe('NyxFission orchestration', () => {
   it('ignores a queued selector failure after same-stack explicit mounting', async () => {
     const errors: unknown[] = []
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
-    particles.on('error', (event) => errors.push(event))
+    particles.on(NyxEventName.Error, (event) => errors.push(event))
 
     particles.mount(canvas())
     await expect(particles.ready).resolves.toBeUndefined()
@@ -221,9 +221,9 @@ describe('NyxFission orchestration', () => {
   it('emits loading, ready, and destroy in lifecycle order', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const events: string[] = []
-    particles.on('loading', () => events.push('loading'))
-    particles.on('ready', () => events.push('ready'))
-    particles.on('destroy', () => events.push('destroy'))
+    particles.on(NyxEventName.Loading, () => events.push('loading'))
+    particles.on(NyxEventName.Ready, () => events.push('ready'))
+    particles.on(NyxEventName.Destroy, () => events.push('destroy'))
 
     particles.mount(canvas())
     await particles.ready
@@ -238,7 +238,7 @@ describe('NyxFission orchestration', () => {
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
-    particles.on('error', (event) => errors.push(event))
+    particles.on(NyxEventName.Error, (event) => errors.push(event))
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
@@ -253,8 +253,8 @@ describe('NyxFission orchestration', () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
     const ready = vi.fn()
-    particles.on('loading', loading)
-    particles.on('ready', ready)
+    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEventName.Ready, ready)
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
@@ -373,8 +373,8 @@ describe('NyxFission orchestration', () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
     const destroys = vi.fn()
-    particles.on('error', (event) => errors.push(event))
-    particles.on('destroy', destroys)
+    particles.on(NyxEventName.Error, (event) => errors.push(event))
+    particles.on(NyxEventName.Destroy, destroys)
 
     particles.mount(canvas())
     await particles.ready

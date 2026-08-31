@@ -4,7 +4,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
-import { NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
+import { NyxEventName, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
 import { buildQuickstart } from './quickstart'
 
 enum SourceChoice {
@@ -93,10 +93,10 @@ const createInstance = async () => {
     } as const
     const nextInstance = new NyxFission(config)
     instance.value = nextInstance
-    nextInstance.on('loading', () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
-    nextInstance.on('ready', () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
-    nextInstance.on('error', handleError)
-    nextInstance.on('destroy', () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
+    nextInstance.on(NyxEventName.Loading, () => setStatus('Loading source', 'Sampling the first frame.', NyxTheme.Primary))
+    nextInstance.on(NyxEventName.Ready, () => setStatus('Live', `${sourceChoice.value} is mounted with ${theme.value}.`, NyxTheme.Success))
+    nextInstance.on(NyxEventName.Error, handleError)
+    nextInstance.on(NyxEventName.Destroy, () => setStatus('Stopped', 'The renderer released its browser resources.', NyxTheme.Secondary))
 
     nextInstance.ready.catch((error: NyxErrorEvent['error']) => {
       if (instance.value === nextInstance) setStatus('Needs attention', error.message, NyxTheme.Danger)

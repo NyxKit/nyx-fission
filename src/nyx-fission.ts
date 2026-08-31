@@ -10,7 +10,7 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import { MediaType, NyxErrorStage, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
+import { MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
@@ -76,7 +76,7 @@ export class NyxFission {
     this.rejectReady = rejectReady
     this.loadingReady = new Promise<void>((resolve) => {
       queueMicrotask(() => {
-        if (this.state !== 'destroyed') this.events.emit('loading', undefined)
+        if (this.state !== 'destroyed') this.events.emit(NyxEventName.Loading, undefined)
         resolve()
       })
     })
@@ -133,7 +133,7 @@ export class NyxFission {
     this.rejectReady(lifecycleError('NyxFission has been destroyed'))
     if (!this.destroyEmitted) {
       this.destroyEmitted = true
-      this.events.emit('destroy', undefined)
+       this.events.emit(NyxEventName.Destroy, undefined)
     }
     this.events.clear()
   }
@@ -180,7 +180,7 @@ export class NyxFission {
       this.runtime?.start((time) => this.renderFrame(time))
       this.state = 'ready'
       this.resolveReady()
-      this.events.emit('ready', undefined)
+       this.events.emit(NyxEventName.Ready, undefined)
     } catch (error) {
       this.fail(asNyxError(error, this.stageFor(error)))
     } finally {
@@ -250,7 +250,7 @@ export class NyxFission {
     this.rejectReady(error)
     if (!this.errorEmitted) {
       this.errorEmitted = true
-      this.events.emit('error', { error, stage: error.stage })
+       this.events.emit(NyxEventName.Error, { error, stage: error.stage })
     }
   }
 }

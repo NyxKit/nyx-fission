@@ -41,8 +41,8 @@ export interface NyxErrorEvent {
 }
 
 export type NyxEventMap = {
-  loading: void
-  ready: void
-  error: NyxErrorEvent
-  destroy: void
+  [NyxEventName.Loading]: void
+  [NyxEventName.Ready]: void
+  [NyxEventName.Error]: NyxErrorEvent
+  [NyxEventName.Destroy]: void
 }
