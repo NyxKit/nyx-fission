@@ -233,5 +233,7 @@ deferred because it requires additional playback state and is not needed for
 the initial automatic-loop behavior.
 
 The interactive demo removes the mount-target selector control. It keeps one
-direct mounting path, presents the live lifecycle state in the playground
-heading as `<status> live`, and does not repeat a separate `LIVE OUTPUT` title.
+direct mounting path and presents the current lifecycle status once in the
+playground heading, such as `Live`, `Loading source`, or `Needs attention`. It
+does not append a duplicate `live` label or repeat a separate `LIVE OUTPUT`
+title.

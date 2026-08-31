@@ -188,11 +188,11 @@ accessibility.
 
 - [ ] **Step 4: Consolidate the live status heading**
 
-Change the playground section heading to show the current status as a title,
-for example `{{ status.toLowerCase() }} live`, with the existing status detail
-remaining in the sidebar’s live region. Remove the separate `LIVE OUTPUT`
-stage-meta label while retaining useful canvas sizing metadata. Ensure the
-result never renders the old duplicated “Live” title plus “LIVE OUTPUT”.
+Change the playground section heading to show the current lifecycle status once,
+such as `Live`, `Loading source`, or `Needs attention`, with the existing status
+detail remaining in the sidebar’s live region. Do not append a duplicate `live`
+label. Remove the separate `LIVE OUTPUT` stage-meta label while retaining
+useful canvas sizing metadata.
 
 - [ ] **Step 5: Update demo documentation and tests**
 
