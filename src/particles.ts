@@ -48,10 +48,14 @@ export class ParticleField {
     this.positions = new Float32Array(positions)
     this.colors = new Float32Array(positions.length)
     this.luminance = new Float32Array(positions.length / 3)
-    updateParticleField(this, imageData)
+    this.updateFrame(imageData, false)
   }
 
   update(imageData: ImageData): void {
+    this.updateFrame(imageData, true)
+  }
+
+  private updateFrame(imageData: ImageData, stabilizeDepth: boolean): void {
     validateTheme(this.theme)
     validateImageData(imageData, this.width, this.height)
     this.pixelIndices.forEach((pixelIndex, index) => {
@@ -59,7 +63,7 @@ export class ParticleField {
       const green = imageData.data[pixelIndex + 1]
       const blue = imageData.data[pixelIndex + 2]
       const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
-      if (Math.abs(luminance - this.luminance[index]) >= DEPTH_UPDATE_THRESHOLD) {
+      if (!stabilizeDepth || Math.abs(luminance - this.luminance[index]) >= DEPTH_UPDATE_THRESHOLD) {
         this.luminance[index] = luminance
       }
       const color = this.theme[Math.min(this.theme.length - 1, Math.floor(luminance * this.theme.length))]

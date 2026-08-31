@@ -22,7 +22,21 @@ function sampledImageData(colors: number[][]): ImageData {
   return imageData(12, 1, pixels)
 }
 
+function singleParticleImageData(red: number): ImageData {
+  const pixels = new Array(48).fill(0)
+  pixels[0] = red
+  pixels[3] = 255
+  return { width: 12, height: 1, data: pixels } as unknown as ImageData
+}
+
 describe('particle fields', () => {
+  it('writes low initial luminance during construction', () => {
+    const field = createParticleField(sampledImageData([[5, 0, 0]]), theme)
+
+    expect(field.luminance[0]).not.toBe(0)
+    expect(field.luminance[0]).toBeCloseTo((0.2126 * 5) / 255, 5)
+  })
+
   it('keeps depth stable for a luminance change below the threshold', () => {
     const field = createParticleField(sampledImageData([[128, 128, 128]]), theme)
     const initialLuminance = field.luminance[0]
@@ -33,13 +47,13 @@ describe('particle fields', () => {
   })
 
   it('accepts a luminance change at the threshold', () => {
-    const field = createParticleField(sampledImageData([[128, 128, 128]]), theme)
-    const initialLuminance = field.luminance[0]
+    const field = createParticleField(singleParticleImageData(0), theme)
+    const thresholdRed = (0.03 * 255) / 0.2126
 
-    updateParticleField(field, sampledImageData([[136, 136, 136]]))
+    updateParticleField(field, singleParticleImageData(thresholdRed))
 
-    expect(field.luminance[0]).not.toBe(initialLuminance)
-    expect(field.luminance[0]).toBeCloseTo(136 / 255)
+    expect(field.luminance[0]).not.toBe(0)
+    expect(field.luminance[0]).toBeCloseTo(0.03)
   })
 
   it('updates colors for a sub-threshold luminance change', () => {
