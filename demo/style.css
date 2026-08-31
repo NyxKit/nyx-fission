@@ -13,6 +13,7 @@ html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--nyx-c-bg); }
 a { color: inherit; }
 .site-shell { max-width: 1240px; margin: 0 auto; padding: 0 40px; }
+.depth-shell { padding-top: 24px; }
 .topbar { min-height: 76px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--demo-line); }
 .wordmark { display: inline-flex; gap: 10px; align-items: center; font-family: var(--nyx-font-family-mono); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .wordmark-mark { display: grid; place-items: center; width: 28px; height: 28px; color: var(--nyx-c-bg); background: var(--demo-accent); border-radius: 50%; }

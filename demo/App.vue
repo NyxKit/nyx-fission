@@ -5,7 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
 import { NyxEventName, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
-import { buildQuickstart, normalizeDemoDepth } from './quickstart'
+import { buildQuickstart, commitDemoDepth, normalizeDemoDepth } from './quickstart'
 
 enum SourceChoice {
   Image = 'image',
@@ -26,6 +26,7 @@ const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)
 const depth = ref(0.35)
+const depthInput = ref(String(depth.value))
 const mountChoice = ref<MountChoice>(MountChoice.Explicit)
 const canvas = ref<HTMLCanvasElement | null>(null)
 const instance = ref<NyxFission | null>(null)
@@ -60,8 +61,14 @@ const handleError = ({ error, stage }: NyxErrorEvent) => {
   setStatus('Needs attention', `${stage}: ${error.message}`, NyxTheme.Danger)
 }
 
-const updateDepth = (value: string) => {
-  depth.value = normalizeDemoDepth(Number(value))
+const updateDepthInput = (value: string) => {
+  depthInput.value = value
+}
+
+const commitDepth = () => {
+  const nextDepth = commitDemoDepth(depthInput.value, depth.value)
+  depthInput.value = String(nextDepth)
+  if (nextDepth !== depth.value) depth.value = nextDepth
 }
 
 const getParticleCanvas = (): HTMLCanvasElement => {
@@ -168,10 +175,13 @@ onBeforeUnmount(destroyInstance)
 </script>
 
 <template>
-  <div class="depth-control">
-    <label class="field-label" for="depth-control">Particle depth: {{ depth.toFixed(2) }}</label>
-    <NyxInput id="depth-control" :model-value="String(depth)" @update:model-value="updateDepth" :type="NyxInputType.Number" :min="-1" :max="1" :step="0.05" :size="NyxSize.Small" />
-    <span class="help-text">Signed depth maps luminance toward or away from the camera.</span>
+  <div class="site-shell depth-shell">
+    <fieldset class="depth-control">
+      <legend>Appearance</legend>
+      <label class="field-label" for="depth-control">Particle depth: {{ depth.toFixed(2) }}</label>
+      <NyxInput id="depth-control" :model-value="depthInput" @update:model-value="updateDepthInput" @blur="commitDepth" :type="NyxInputType.Number" :min="-1" :max="1" :step="0.05" :size="NyxSize.Small" />
+      <span class="help-text">Signed depth maps luminance toward or away from the camera.</span>
+    </fieldset>
   </div>
   <main class="site-shell">
     <header class="topbar">

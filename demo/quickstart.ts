@@ -9,6 +9,12 @@ export function normalizeDemoDepth(depth: number): number {
   return Math.min(DEMO_DEPTH_MAX, Math.max(DEMO_DEPTH_MIN, depth))
 }
 
+export function commitDemoDepth(input: string, currentDepth: number): number {
+  if (!input.trim() || input.trim() === '-') return currentDepth
+  const nextDepth = Number(input)
+  return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
+}
+
 export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildQuickstart } from './quickstart'
+import { buildQuickstart, commitDemoDepth } from './quickstart'
 
 describe('buildQuickstart', () => {
   it.each([
@@ -40,5 +40,11 @@ describe('buildQuickstart', () => {
     [Number.NaN, 'depth: 0.35'],
   ])('normalizes generated depth %s into the demo range', (depth, expectedDepth) => {
     expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', depth)).toContain(expectedDepth)
+  })
+
+  it('keeps transient empty and negative input editable until commit', () => {
+    expect(commitDemoDepth('', 0.35)).toBe(0.35)
+    expect(commitDemoDepth('-', 0.35)).toBe(0.35)
+    expect(commitDemoDepth('-0.5', 0.35)).toBe(-0.5)
   })
 })
