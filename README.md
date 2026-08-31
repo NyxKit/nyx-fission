@@ -94,7 +94,7 @@ pnpm install
 pnpm dev
 ```
 
-Open the printed local URL. The local SVG and WebM fixtures are deterministic and same-origin, so the image and video controls work without a third-party request. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
+Open the printed local URL. The demo uses explicit canvas mounting, and its deterministic same-origin WebM fixture loops automatically from the beginning. The local SVG and video controls work without a third-party request. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
 
 To build the demo separately:
 
@@ -102,7 +102,7 @@ To build the demo separately:
 pnpm build:demo
 ```
 
-The default `pnpm build` remains the library build. The demo supports keyboard navigation, visible focus, live status text, reduced decorative motion, and a mobile layout. There is no browser automation suite in this MVP; manually verify the image, video, webcam permission, four themes, both mount modes, destroy/recreate behavior, nested URL paths, and the copy button with `pnpm dev`.
+The default `pnpm build` remains the library build. The demo supports keyboard navigation, visible focus, live status text, reduced decorative motion, and a mobile layout. There is no browser automation suite in this MVP; manually verify the image, video, webcam permission, four themes, destroy/recreate behavior, nested URL paths, and the copy button with `pnpm dev`.
 
 ## MVP non-goals
 

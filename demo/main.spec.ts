@@ -46,4 +46,16 @@ describe('compiled demo entry', () => {
     expect(depthControl).toBeGreaterThan(railStart)
     expect(depthControl).toBeLessThan(railEnd)
   })
+
+  it('keeps the playground focused on explicit mounting and live status', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+
+    expect(app).not.toContain('MountChoice')
+    expect(app).not.toContain('mountChoice')
+    expect(app).not.toContain('mountOptions')
+    expect(app).not.toContain('mount-select')
+    expect(app).not.toContain('Integration shape')
+    expect(app).toContain('{{ status.toLowerCase() }} live')
+    expect(app).not.toContain('LIVE OUTPUT')
+  })
 })
