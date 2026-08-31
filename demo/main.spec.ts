@@ -38,8 +38,12 @@ describe('compiled demo entry', () => {
 
   it('places the depth control in the playground control rail', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+    const railStart = app.indexOf('<aside class="control-rail"')
+    const depthControl = app.indexOf('for="depth-control"')
+    const railEnd = app.indexOf('</aside>', railStart)
 
-    expect(app).toContain('<Teleport to=".control-rail">')
-    expect(app).toContain('<fieldset class="depth-control">')
+    expect(railStart).toBeGreaterThanOrEqual(0)
+    expect(depthControl).toBeGreaterThan(railStart)
+    expect(depthControl).toBeLessThan(railEnd)
   })
 })
