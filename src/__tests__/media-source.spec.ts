@@ -171,24 +171,31 @@ describe('loadMediaSource', () => {
       },
       set loop(value: boolean) {
         loop = value
+        assignments.push(`loop:${value}`)
       },
       get autoplay() {
         return autoplay
       },
       set autoplay(value: boolean) {
         autoplay = value
+        assignments.push(`autoplay:${value}`)
       },
       get muted() {
         return muted
       },
       set muted(value: boolean) {
         muted = value
+        assignments.push(`muted:${value}`)
       },
       get playsInline() {
         return playsInline
       },
       set playsInline(value: boolean) {
         playsInline = value
+        assignments.push(`playsInline:${value}`)
+      },
+      set preload(value: string) {
+        assignments.push(`preload:${value}`)
       },
       set crossOrigin(value: string) {
         assignments.push(`crossOrigin:${value}`)
@@ -209,7 +216,15 @@ describe('loadMediaSource', () => {
       (value: unknown) => value,
     )
 
-    expect(assignments).toEqual(['crossOrigin:anonymous', 'src'])
+    expect(assignments).toEqual([
+      'crossOrigin:anonymous',
+      'muted:true',
+      'autoplay:true',
+      'playsInline:true',
+      'loop:true',
+      'preload:auto',
+      'src',
+    ])
     expect(loop).toBe(true)
     expect(autoplay).toBe(true)
     expect(muted).toBe(true)
