@@ -211,3 +211,27 @@ The demo exposes a simple signed depth control and displays the active value in
 its integration example. It does not expose render-loop or performance
 controls. Tests cover default, zero, positive, negative, invalid, and dynamic
 frame-update behavior, plus perspective framing.
+
+## Follow-up Demo and Particle Refinements
+
+The particle field uses an internal normalized-luminance update threshold of
+`0.03`. During frame updates, a particle's luminance attribute changes only
+when the absolute difference from its last accepted value meets or exceeds
+that threshold. This suppresses small background noise from causing visible
+depth jitter while preserving larger motion. The threshold is not part of the
+public configuration and does not alter palette color updates.
+
+The `nyx` palette contains four particle colors sourced in this order from
+`--nyx-c-primary`, `--nyx-c-secondary`, `--nyx-c-tertiary`, and
+`--nyx-c-neutral`, with stable package fallbacks for missing or invalid values.
+Lifecycle status colors remain controlled by NyxKit and are unrelated to the
+particle palette.
+
+URL video sources in the demo and library start at time zero and use native
+forward looping with autoplay enabled. Ping-pong playback is intentionally
+deferred because it requires additional playback state and is not needed for
+the initial automatic-loop behavior.
+
+The interactive demo removes the mount-target selector control. It keeps one
+direct mounting path, presents the live lifecycle state in the playground
+heading as `<status> live`, and does not repeat a separate `LIVE OUTPUT` title.
