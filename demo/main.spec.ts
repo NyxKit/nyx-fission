@@ -65,6 +65,15 @@ describe('compiled demo entry', () => {
     expect(app).not.toContain('class="status-block"')
   })
 
+  it('visually hides playground legends while retaining them for assistive technology', () => {
+    const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
+
+    expect(styles).toContain('.control-rail legend')
+    expect(styles).toContain('position: absolute')
+    expect(styles).toContain('width: 1px')
+    expect(styles).toContain('height: 1px')
+  })
+
   it('uses the MP4 playground video fixture', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 

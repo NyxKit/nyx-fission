@@ -53,6 +53,7 @@ canvas { width: min(100%, 720px); aspect-ratio: 4 / 3; position: relative; z-ind
 .status-block span { color: var(--demo-muted); font-size: 12px; line-height: 1.4; margin-top: 3px; }
 fieldset { border: 0; border-bottom: 1px solid var(--demo-line); padding: 22px 0; margin: 0; }
 legend { color: var(--demo-faint); font: 10px var(--nyx-font-family-mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
+.control-rail legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .source-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
 .field-label { display: block; color: var(--demo-muted); font-size: 12px; margin-bottom: 6px; }
 .url-row { display: grid; grid-template-columns: 1fr auto; gap: 7px; align-items: center; }
