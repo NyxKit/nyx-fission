@@ -47,6 +47,16 @@ describe('compiled demo entry', () => {
     expect(depthControl).toBeLessThan(railEnd)
   })
 
+  it('includes the luma-key fields in the demo configuration', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+    const quickstart = readFileSync(resolve(demoDirectory, 'quickstart.ts'), 'utf8')
+
+    expect(app).toContain('lumaKey: LumaKeyMode.None')
+    expect(app).toContain('lumaKeyThreshold: 0.1')
+    expect(quickstart).toContain('lumaKey: LumaKeyMode.None')
+    expect(quickstart).toContain('lumaKeyThreshold: 0.1')
+  })
+
   it('keeps the playground focused on explicit mounting and live status', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 

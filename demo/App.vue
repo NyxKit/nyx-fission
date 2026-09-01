@@ -4,7 +4,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxBadge, NyxButton, NyxInput, NyxSelect, NyxStatusDot } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
-import { NyxEventName, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
+import { LumaKeyMode, NyxEventName, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
 import { buildQuickstart, commitDemoDepth, normalizeDemoDepth } from './quickstart'
 
 enum SourceChoice {
@@ -88,6 +88,8 @@ const createInstance = async () => {
       type: sourceChoice.value,
       theme: theme.value,
       depth: normalizeDemoDepth(depth.value),
+      lumaKey: LumaKeyMode.None,
+      lumaKeyThreshold: 0.1,
       ...(sourceChoice.value === SourceChoice.Usermedia
         ? {}
         : { source: new URL(sourceUrl.value, document.baseURI).href }),

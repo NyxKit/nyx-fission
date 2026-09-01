@@ -3,19 +3,19 @@ import { buildQuickstart, commitDemoDepth } from './quickstart'
 
 describe('buildQuickstart', () => {
   it.each([
-    ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35'],
-    ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5'],
-    ['usermedia', 'ignored', '0', 'type: MediaType.Usermedia, depth: 0'],
+    ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
+    ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
+    ['usermedia', 'ignored', '0', 'type: MediaType.Usermedia, depth: 0, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
   ] as const)('includes the active depth literal for %s examples', (source, sourceUrl, depth, config) => {
     expect(buildQuickstart(source, sourceUrl, Number(depth))).toContain(config)
   })
 
   it('builds a webcam example without a source URL', () => {
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'import { MediaType, NyxFission } from \'nyx-fission\'',
+      'import { LumaKeyMode, MediaType, NyxFission } from \'nyx-fission\'',
     )
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'new NyxFission({ type: MediaType.Usermedia, depth: 0.35 })',
+      'new NyxFission({ type: MediaType.Usermedia, depth: 0.35, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1 })',
     )
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).not.toContain('source:')
   })

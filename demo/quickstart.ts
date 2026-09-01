@@ -21,9 +21,9 @@ export function buildQuickstart(source: QuickstartSource, sourceUrl: string, dep
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
     : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}`
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1`
 
-  return `import { MediaType, NyxFission } from 'nyx-fission'
+  return `import { LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${config} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')
