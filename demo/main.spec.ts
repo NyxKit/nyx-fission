@@ -81,6 +81,18 @@ describe('compiled demo entry', () => {
     expect(app).not.toContain("./fixtures/nyx-orbit.webm")
   })
 
+  it('applies numeric input changes automatically and exposes update progress', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+    const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
+
+    expect(app).toContain('scheduleDepthCommit')
+    expect(app).toContain('scheduleLumaKeyThresholdCommit')
+    expect(app).toContain('isUpdating')
+    expect(app).toContain('aria-live="polite"')
+    expect(styles).toContain('.playground-updating')
+    expect(styles).toContain('animation:')
+  })
+
   it('keeps the playground focused on explicit mounting and live status', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 

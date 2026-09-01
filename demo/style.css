@@ -47,10 +47,9 @@ canvas { width: min(100%, 720px); aspect-ratio: 4 / 3; position: relative; z-ind
 .stage-caption, .help-text { display: block; color: var(--demo-faint); font-size: 12px; line-height: 1.5; }
 .stage-caption { margin: 12px 0 0; }
 .control-rail { border-top: 1px solid var(--demo-line); }
-.status-block { min-height: 82px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--demo-line); }
-.status-block strong, .status-block span { display: block; }
-.status-block strong { font-size: 14px; }
-.status-block span { color: var(--demo-muted); font-size: 12px; line-height: 1.4; margin-top: 3px; }
+.playground-updating { display: flex; justify-content: flex-end; align-items: center; gap: 6px; min-height: 0; margin: -86px 0 86px; color: var(--demo-faint); font: 10px var(--nyx-font-family-mono); letter-spacing: .1em; text-transform: uppercase; pointer-events: none; }
+.updating-spinner { width: 10px; height: 10px; border: 1px solid var(--demo-line); border-top-color: var(--demo-accent); border-radius: 50%; animation: playground-spin .7s linear infinite; }
+@keyframes playground-spin { to { transform: rotate(360deg); } }
 fieldset { border: 0; border-bottom: 1px solid var(--demo-line); padding: 22px 0; margin: 0; }
 legend { color: var(--demo-faint); font: 10px var(--nyx-font-family-mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
 .control-rail legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
