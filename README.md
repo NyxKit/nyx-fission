@@ -51,6 +51,10 @@ const particles = new NyxFission({
 
 `depth` defaults to `0.35` and accepts finite signed values from `-1,000,000` through `1,000,000`. This internal magnitude bound keeps the value safely representable for the renderer's `Float32` data. Each particle's normalized luminance is mapped to depth with `z = luminance * depth`; positive depth moves it toward positive Z, negative depth reverses that direction, and `depth: 0` produces a flat plane. Depth is fixed when an instance is created, so destroy and recreate the instance to change it. The render loop and performance controls remain internal to NyxFission.
 
+### Luma keying
+
+`lumaKey` defaults to `LumaKeyMode.None`. Set it to `LumaKeyMode.Dark` to discard particles at or below `lumaKeyThreshold`, or `LumaKeyMode.Light` to discard particles at or above `1 - lumaKeyThreshold`. The normalized `lumaKeyThreshold` defaults to `0.1` and accepts values from `0` through `1`. Luma-key settings are fixed when an instance is created; destroy and recreate the instance to change them.
+
 ## Events and lifecycle
 
 Use `ready` as a promise or subscribe to lifecycle events. `on` and `off` use the same listener reference.

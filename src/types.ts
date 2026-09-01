@@ -13,12 +13,20 @@ export enum ThemeName {
   Nyx = 'nyx',
 }
 
+export enum LumaKeyMode {
+  None = 'none',
+  Dark = 'dark',
+  Light = 'light',
+}
+
 export interface NyxFissionConfig {
   source?: string
   type?: MediaType
   theme?: ThemeName
   querySelector?: string
   depth?: number
+  lumaKey?: LumaKeyMode
+  lumaKeyThreshold?: number
 }
 
 export enum NyxEventName {

@@ -1,6 +1,6 @@
 export { NyxFission } from './nyx-fission'
 export { NyxError } from './errors'
-export { MediaType, NyxErrorStage, NyxEventName, ThemeName } from './types'
+export { LumaKeyMode, MediaType, NyxErrorStage, NyxEventName, ThemeName } from './types'
 export type { NyxErrorCode } from './errors'
 export type {
   NyxErrorEvent,

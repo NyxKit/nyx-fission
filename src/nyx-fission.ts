@@ -11,13 +11,15 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import { MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
+import { LumaKeyMode, MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
 const DEFAULT_DEPTH = 0.35
+const DEFAULT_LUMA_KEY_THRESHOLD = 0.1
 const mediaTypes: readonly MediaType[] = Object.values(MediaType)
 const themeNames: readonly ThemeName[] = Object.values(ThemeName)
+const lumaKeyModes: readonly LumaKeyMode[] = Object.values(LumaKeyMode)
 
 function validateConfig(config: NyxFissionConfig): void {
   if (config.type !== undefined && !mediaTypes.includes(config.type)) {
@@ -27,6 +29,12 @@ function validateConfig(config: NyxFissionConfig): void {
     throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
   if (config.depth !== undefined) validateParticleDepth(config.depth, NyxErrorStage.Sampling)
+  if (config.lumaKey !== undefined && !lumaKeyModes.includes(config.lumaKey)) {
+    throw new NyxError(`Unsupported luma-key mode: ${String(config.lumaKey)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
+  }
+  if (config.lumaKeyThreshold !== undefined && (!Number.isFinite(config.lumaKeyThreshold) || config.lumaKeyThreshold < 0 || config.lumaKeyThreshold > 1)) {
+    throw new NyxError('Luma-key threshold must be finite and within 0..1', 'INVALID_CONFIG', NyxErrorStage.Sampling)
+  }
   if (config.type !== MediaType.Usermedia && !config.source) {
     throw new NyxError('A media source is required', 'INVALID_CONFIG', NyxErrorStage.Source)
   }
@@ -45,6 +53,8 @@ export class NyxFission {
   readonly ready: Promise<void>
 
   private readonly config: NyxFissionConfig
+  private readonly lumaKey: LumaKeyMode
+  private readonly lumaKeyThreshold: number
   private readonly events = new NyxEventEmitter<NyxEventMap>()
   private readonly resolveReady: () => void
   private readonly rejectReady: (_error: NyxError) => void
@@ -68,6 +78,8 @@ export class NyxFission {
   constructor(config: NyxFissionConfig = {}) {
     this.config = { ...config }
     validateConfig(this.config)
+    this.lumaKey = this.config.lumaKey ?? LumaKeyMode.None
+    this.lumaKeyThreshold = this.config.lumaKeyThreshold ?? DEFAULT_LUMA_KEY_THRESHOLD
 
     let resolveReady!: () => void
     let rejectReady!: (_error: NyxError) => void
@@ -198,7 +210,7 @@ export class NyxFission {
     this.frameWidth = frame.width
     this.frameHeight = frame.height
     this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx))
-    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, (error) => this.handleRuntimeError(error))
+    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, this.lumaKey, this.lumaKeyThreshold, (error) => this.handleRuntimeError(error))
   }
 
   private renderFrame(time = 0): void {
