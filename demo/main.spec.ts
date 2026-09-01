@@ -65,6 +65,13 @@ describe('compiled demo entry', () => {
     expect(app).not.toContain('class="status-block"')
   })
 
+  it('uses the MP4 playground video fixture', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+
+    expect(app).toContain("./fixtures/nyx-orbit.mp4")
+    expect(app).not.toContain("./fixtures/nyx-orbit.webm")
+  })
+
   it('keeps the playground focused on explicit mounting and live status', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 

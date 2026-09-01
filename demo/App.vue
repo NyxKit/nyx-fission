@@ -16,7 +16,7 @@ enum SourceChoice {
 type Status = 'Waiting for a source' | 'Loading source' | 'Live' | 'Needs attention' | 'Stopped' | 'Webcam unavailable'
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
-const videoUrl = new URL('./fixtures/nyx-orbit.webm', document.baseURI).href
+const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
 const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)
