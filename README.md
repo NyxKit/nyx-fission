@@ -53,19 +53,19 @@ const particles = new NyxFission({
 
 ### Luma keying
 
-`lumaKey` defaults to `LumaKeyMode.None`. Set it to `LumaKeyMode.Dark` to discard particles at or below `lumaKeyThreshold`, or `LumaKeyMode.Light` to discard particles at or above `1 - lumaKeyThreshold`. The normalized `lumaKeyThreshold` defaults to `0.1` and accepts values from `0` through `1`. Luma-key settings are fixed when an instance is created; destroy and recreate the instance to change them.
+`lumaKey` defaults to `LumaKey.None`. Set it to `LumaKey.Dark` to discard particles at or below `lumaKeyThreshold`, or `LumaKey.Light` to discard particles at or above `1 - lumaKeyThreshold`. The normalized `lumaKeyThreshold` defaults to `0.1` and accepts values from `0` through `1`. Luma-key settings are fixed when an instance is created; destroy and recreate the instance to change them.
 
 ## Events and lifecycle
 
 Use `ready` as a promise or subscribe to lifecycle events. `on` and `off` use the same listener reference.
 
 ```ts
-import { NyxEventName } from 'nyx-fission'
+import { NyxEvent } from 'nyx-fission'
 
 const onReady = () => console.log('particle field ready')
-particles.on(NyxEventName.Ready, onReady)
-particles.on(NyxEventName.Error, ({ error, stage }) => console.error(stage, error))
-particles.off(NyxEventName.Ready, onReady)
+particles.on(NyxEvent.Ready, onReady)
+particles.on(NyxEvent.Error, ({ error, stage }) => console.error(stage, error))
+particles.off(NyxEvent.Ready, onReady)
 
 await particles.ready
 particles.destroy()

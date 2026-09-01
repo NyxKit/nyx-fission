@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NyxError } from '../errors'
 import { ThreeRuntime } from '../runtime'
-import { LumaKeyMode } from '../types'
+import { LumaKey } from '../types'
 import type { ParticleField } from '../particles'
 import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
@@ -143,7 +143,7 @@ describe('ThreeRuntime', () => {
   it('creates and attaches the Three.js particle scene', () => {
     const target = canvas()
 
-    const runtime = new ThreeRuntime(target, field(), 0.35, LumaKeyMode.Dark, 0.25)
+    const runtime = new ThreeRuntime(target, field(), 0.35, LumaKey.Dark, 0.25)
 
     expect(three.Scene).toHaveBeenCalledTimes(1)
     expect(three.PerspectiveCamera).toHaveBeenCalledWith(50, 640 / 360, expect.any(Number), expect.any(Number))
@@ -167,9 +167,9 @@ describe('ThreeRuntime', () => {
   })
 
   it.each([
-    [LumaKeyMode.None, 0],
-    [LumaKeyMode.Dark, 1],
-    [LumaKeyMode.Light, 2],
+    [LumaKey.None, 0],
+    [LumaKey.Dark, 1],
+    [LumaKey.Light, 2],
   ] as const)('maps %s to the corresponding shader mode', (mode, numericMode) => {
     const runtime = new ThreeRuntime(canvas(), field(), 0.35, mode, 0.1)
 
@@ -226,7 +226,7 @@ describe('ThreeRuntime', () => {
   it('reports and disposes the runtime when a frame callback throws', () => {
     const cause = new Error('frame failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKeyMode.None, 0.1, onError)
+    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKey.None, 0.1, onError)
     runtime.start(() => {
       throw cause
     })
@@ -359,7 +359,7 @@ describe('ThreeRuntime', () => {
   it('reports and disposes a typed error when observed resize fails', () => {
     const cause = new Error('resize failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKeyMode.None, 0.1, onError)
+    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKey.None, 0.1, onError)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     renderer.setSize.mockImplementationOnce(() => {
       throw cause
@@ -528,7 +528,7 @@ describe('ThreeRuntime', () => {
   })
 
   it('does not expose runtime luma-key setters', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35, LumaKeyMode.None, 0.1)
+    const runtime = new ThreeRuntime(canvas(), field(), 0.35, LumaKey.None, 0.1)
 
     expect('setLumaKey' in runtime).toBe(false)
     expect('setLumaKeyThreshold' in runtime).toBe(false)

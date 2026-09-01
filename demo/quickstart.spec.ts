@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { buildQuickstart, commitDemoDepth } from './quickstart'
-import { LumaKeyMode } from '../src/index'
+import { LumaKey } from '../src/index'
 
 describe('buildQuickstart', () => {
   it.each([
-    ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
-    ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
-    ['usermedia', 'ignored', '0', 'type: MediaType.Usermedia, depth: 0, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1'],
+    ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35, lumaKey: LumaKey.None, lumaKeyThreshold: 0.1'],
+    ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5, lumaKey: LumaKey.None, lumaKeyThreshold: 0.1'],
+    ['usermedia', 'ignored', '0', 'type: MediaType.Usermedia, depth: 0, lumaKey: LumaKey.None, lumaKeyThreshold: 0.1'],
   ] as const)('includes the active depth literal for %s examples', (source, sourceUrl, depth, config) => {
     expect(buildQuickstart(source, sourceUrl, Number(depth))).toContain(config)
   })
 
   it('builds a webcam example without a source URL', () => {
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'import { LumaKeyMode, MediaType, NyxFission } from \'nyx-fission\'',
+      'import { LumaKey, MediaType, NyxFission } from \'nyx-fission\'',
     )
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'new NyxFission({ type: MediaType.Usermedia, depth: 0.35, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1 })',
+      'new NyxFission({ type: MediaType.Usermedia, depth: 0.35, lumaKey: LumaKey.None, lumaKeyThreshold: 0.1 })',
     )
     expect(buildQuickstart('usermedia', 'ignored', 0.35)).not.toContain('source:')
   })
@@ -54,8 +54,8 @@ describe('buildQuickstart', () => {
   })
 
   it('includes selected luma-key settings in the generated example', () => {
-    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35, LumaKeyMode.Dark, 0.25)).toContain(
-      'lumaKey: LumaKeyMode.Dark, lumaKeyThreshold: 0.25',
+    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35, LumaKey.Dark, 0.25)).toContain(
+      'lumaKey: LumaKey.Dark, lumaKeyThreshold: 0.25',
     )
   })
 })

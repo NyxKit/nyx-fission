@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { LumaKeyMode, MediaType, NyxErrorStage, NyxEventName, ThemeName } from '../types'
+import { LumaKey, MediaType, NyxErrorStage, NyxEvent, ThemeName } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: LumaKeyMode; lumaKeyThreshold: number; errorCallback?: (_error: unknown) => void }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: LumaKey; lumaKeyThreshold: number; errorCallback?: (_error: unknown) => void }>,
 }))
 
 const FLOAT32_SAFE_DEPTH = 1_000_000
@@ -38,10 +38,10 @@ vi.mock('../runtime', () => ({
 
     depth: number
 
-    lumaKey: LumaKeyMode
+    lumaKey: LumaKey
     lumaKeyThreshold: number
 
-    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: LumaKeyMode = LumaKeyMode.None, lumaKeyThreshold = 0.1, errorCallback?: (_error: unknown) => void) {
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: LumaKey = LumaKey.None, lumaKeyThreshold = 0.1, errorCallback?: (_error: unknown) => void) {
       this.depth = typeof depth === 'number' ? depth : 0
       this.lumaKey = lumaKey
       this.lumaKeyThreshold = lumaKeyThreshold
@@ -133,12 +133,12 @@ describe('NyxFission orchestration', () => {
     particles.mount(canvas())
     await particles.ready
 
-    expect(mocks.runtimeInstances[0].lumaKey).toBe(LumaKeyMode.None)
+    expect(mocks.runtimeInstances[0].lumaKey).toBe(LumaKey.None)
     expect(mocks.runtimeInstances[0].lumaKeyThreshold).toBe(0.1)
     particles.destroy()
   })
 
-  it.each([LumaKeyMode.None, LumaKeyMode.Dark, LumaKeyMode.Light])('passes luma-key mode %s and threshold to the runtime constructor', async (lumaKey) => {
+  it.each([LumaKey.None, LumaKey.Dark, LumaKey.Light])('passes luma-key mode %s and threshold to the runtime constructor', async (lumaKey) => {
     const particles = new NyxFission({ source: './portrait.jpg', lumaKey, lumaKeyThreshold: 0.5 })
     particles.mount(canvas())
     await particles.ready
@@ -159,7 +159,7 @@ describe('NyxFission orchestration', () => {
   })
 
   it('rejects an unsupported luma-key mode before starting work', () => {
-    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: 'mid' as LumaKeyMode })).toThrowError(
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: 'mid' as LumaKey })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG' }),
     )
   })
@@ -198,7 +198,7 @@ describe('NyxFission orchestration', () => {
     Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' })
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#late-particles' })
     const loading = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEvent.Loading, loading)
 
     expect(loading).not.toHaveBeenCalled()
     await Promise.resolve()
@@ -218,7 +218,7 @@ describe('NyxFission orchestration', () => {
   it('emits loading once before automatic target failure', async () => {
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
     const loading = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEvent.Loading, loading)
 
     expect(loading).not.toHaveBeenCalled()
     await expect(particles.ready).rejects.toMatchObject({ code: 'INVALID_TARGET' })
@@ -230,7 +230,7 @@ describe('NyxFission orchestration', () => {
     const lookup = vi.spyOn(document, 'querySelector')
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '#missing' })
     const loading = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEvent.Loading, loading)
 
     expect(lookup).not.toHaveBeenCalled()
     expect(loading).not.toHaveBeenCalled()
@@ -244,7 +244,7 @@ describe('NyxFission orchestration', () => {
   it('delivers one loading event to listeners for an explicit mount', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEvent.Loading, loading)
 
     particles.mount(canvas())
     expect(loading).not.toHaveBeenCalled()
@@ -257,7 +257,7 @@ describe('NyxFission orchestration', () => {
   it('defers explicit target validation and source work until after loading', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
+    particles.on(NyxEvent.Loading, loading)
 
     particles.mount(document.createElement('div') as unknown as HTMLCanvasElement)
 
@@ -271,7 +271,7 @@ describe('NyxFission orchestration', () => {
   it('ignores a queued selector failure after same-stack explicit mounting', async () => {
     const errors: unknown[] = []
     const particles = new NyxFission({ source: './portrait.jpg', querySelector: '[' })
-    particles.on(NyxEventName.Error, (event) => errors.push(event))
+    particles.on(NyxEvent.Error, (event) => errors.push(event))
 
     particles.mount(canvas())
     await expect(particles.ready).resolves.toBeUndefined()
@@ -303,9 +303,9 @@ describe('NyxFission orchestration', () => {
   it('emits loading, ready, and destroy in lifecycle order', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const events: string[] = []
-    particles.on(NyxEventName.Loading, () => events.push('loading'))
-    particles.on(NyxEventName.Ready, () => events.push('ready'))
-    particles.on(NyxEventName.Destroy, () => events.push('destroy'))
+    particles.on(NyxEvent.Loading, () => events.push('loading'))
+    particles.on(NyxEvent.Ready, () => events.push('ready'))
+    particles.on(NyxEvent.Destroy, () => events.push('destroy'))
 
     particles.mount(canvas())
     await particles.ready
@@ -320,7 +320,7 @@ describe('NyxFission orchestration', () => {
     mocks.loadMediaSource.mockRejectedValueOnce(failure)
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
-    particles.on(NyxEventName.Error, (event) => errors.push(event))
+    particles.on(NyxEvent.Error, (event) => errors.push(event))
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
@@ -335,8 +335,8 @@ describe('NyxFission orchestration', () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const loading = vi.fn()
     const ready = vi.fn()
-    particles.on(NyxEventName.Loading, loading)
-    particles.on(NyxEventName.Ready, ready)
+    particles.on(NyxEvent.Loading, loading)
+    particles.on(NyxEvent.Ready, ready)
 
     particles.mount(canvas())
     await expect(particles.ready).rejects.toBe(failure)
@@ -467,8 +467,8 @@ describe('NyxFission orchestration', () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     const errors: unknown[] = []
     const destroys = vi.fn()
-    particles.on(NyxEventName.Error, (event) => errors.push(event))
-    particles.on(NyxEventName.Destroy, destroys)
+    particles.on(NyxEvent.Error, (event) => errors.push(event))
+    particles.on(NyxEvent.Destroy, destroys)
 
     particles.mount(canvas())
     await particles.ready

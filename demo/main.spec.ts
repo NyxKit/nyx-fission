@@ -30,8 +30,8 @@ describe('compiled demo entry', () => {
   it('documents lifecycle subscriptions with public event enum members', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 
-    expect(app).toContain('NyxEventName.Ready')
-    expect(app).toContain('NyxEventName.Error')
+    expect(app).toContain('NyxEvent.Ready')
+    expect(app).toContain('NyxEvent.Error')
     expect(app).not.toContain("on('ready', fn)")
     expect(app).not.toContain("off('ready', fn)")
   })

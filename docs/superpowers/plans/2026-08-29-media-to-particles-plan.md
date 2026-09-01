@@ -133,7 +133,7 @@ export interface NyxFissionConfig {
   querySelector?: string
 }
 
-export enum NyxEventName {
+export enum NyxEvent {
   Loading = 'loading',
   Ready = 'ready',
   Error = 'error',
@@ -154,10 +154,10 @@ export interface NyxErrorEvent {
 }
 
 export type NyxEventMap = {
-  [NyxEventName.Loading]: void
-  [NyxEventName.Ready]: void
-  [NyxEventName.Error]: NyxErrorEvent
-  [NyxEventName.Destroy]: void
+  [NyxEvent.Loading]: void
+  [NyxEvent.Ready]: void
+  [NyxEvent.Error]: NyxErrorEvent
+  [NyxEvent.Destroy]: void
 }
 ```
 
@@ -192,16 +192,16 @@ emitter supports multiple listeners, `off`, one-shot payload delivery, and
 listener exceptions not stopping later listeners.
 
 ```ts
-import { NyxErrorStage, NyxEventName } from '../types'
+import { NyxErrorStage, NyxEvent } from '../types'
 
 it('emits payloads and removes listeners', () => {
   const emitter = new NyxEventEmitter<NyxEventMap>()
   const listener = vi.fn()
-  emitter.on(NyxEventName.Error, listener)
-  emitter.emit(NyxEventName.Error, { error: new Error('cors'), stage: NyxErrorStage.Source })
+  emitter.on(NyxEvent.Error, listener)
+  emitter.emit(NyxEvent.Error, { error: new Error('cors'), stage: NyxErrorStage.Source })
   expect(listener).toHaveBeenCalledOnce()
-  emitter.off(NyxEventName.Error, listener)
-  emitter.emit(NyxEventName.Error, { error: new Error('again'), stage: NyxErrorStage.Source })
+  emitter.off(NyxEvent.Error, listener)
+  emitter.emit(NyxEvent.Error, { error: new Error('again'), stage: NyxErrorStage.Source })
   expect(listener).toHaveBeenCalledOnce()
 })
 ```

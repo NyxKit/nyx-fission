@@ -1,7 +1,7 @@
-import { LumaKeyMode } from '../src/index'
+import { LumaKey } from '../src/index'
 
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
-export type QuickstartLumaKey = LumaKeyMode
+export type QuickstartLumaKey = LumaKey
 
 export const DEMO_DEPTH_DEFAULT = 0.35
 export const DEMO_DEPTH_MIN = -1
@@ -19,15 +19,15 @@ export function commitDemoDepth(input: string | number, currentDepth: number): n
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 
-export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = LumaKeyMode.None, lumaKeyThreshold = 0.1): string {
+export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = LumaKey.None, lumaKeyThreshold = 0.1): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
     : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
-  const lumaKeyMember = lumaKey === LumaKeyMode.Dark ? 'Dark' : lumaKey === LumaKeyMode.Light ? 'Light' : 'None'
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKeyMode.${lumaKeyMember}, lumaKeyThreshold: ${String(Math.min(1, Math.max(0, lumaKeyThreshold)))}`
+  const lumaKeyMember = lumaKey === LumaKey.Dark ? 'Dark' : lumaKey === LumaKey.Light ? 'Light' : 'None'
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKey.${lumaKeyMember}, lumaKeyThreshold: ${String(Math.min(1, Math.max(0, lumaKeyThreshold)))}`
 
-  return `import { LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
+  return `import { LumaKey, MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${config} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')

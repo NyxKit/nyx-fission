@@ -18,7 +18,7 @@
 
 - [x] **Step 1: Write failing public enum and config tests**
 
-Add `LumaKeyMode` to the public-types import and assert its runtime values. Add a typed config fixture using `lumaKey` and `lumaKeyThreshold`. In the orchestration suite, extend the mocked runtime instance shape to record mode and threshold, then add tests that omitted options resolve to `LumaKeyMode.None` and `0.1`, and explicit `Dark`/`Light` values reach the runtime unchanged.
+Add `LumaKey` to the public-types import and assert its runtime values. Add a typed config fixture using `lumaKey` and `lumaKeyThreshold`. In the orchestration suite, extend the mocked runtime instance shape to record mode and threshold, then add tests that omitted options resolve to `LumaKey.None` and `0.1`, and explicit `Dark`/`Light` values reach the runtime unchanged.
 
 - [x] **Step 2: Write failing validation tests**
 
@@ -28,7 +28,7 @@ Add tests for unsupported luma modes and each threshold value `NaN`, positive in
 
 Run: `pnpm vitest run src/__tests__/public-types.spec.ts src/__tests__/nyx-fission.spec.ts`
 
-Expected: FAIL because `LumaKeyMode` and the new config behavior are not implemented.
+Expected: FAIL because `LumaKey` and the new config behavior are not implemented.
 
 ### Task 2: Add failing runtime and shader tests
 
@@ -37,7 +37,7 @@ Expected: FAIL because `LumaKeyMode` and the new config behavior are not impleme
 
 - [x] **Step 1: Write failing uniform wiring coverage**
 
-Import `LumaKeyMode`, construct `ThreeRuntime` with the new mode and threshold arguments, and assert `ShaderMaterial.uniforms` contains numeric mode values for none/dark/light and the exact threshold. Assert the existing luminance attribute remains present and in-place `setField()` updates still set its array and `needsUpdate`.
+Import `LumaKey`, construct `ThreeRuntime` with the new mode and threshold arguments, and assert `ShaderMaterial.uniforms` contains numeric mode values for none/dark/light and the exact threshold. Assert the existing luminance attribute remains present and in-place `setField()` updates still set its array and `needsUpdate`.
 
 - [x] **Step 2: Write failing shader behavior coverage**
 
@@ -66,18 +66,18 @@ Expected: FAIL because the constructor signature, uniforms, and shader declarati
 Define and export:
 
 ```ts
-export enum LumaKeyMode {
+export enum LumaKey {
   None = 'none',
   Dark = 'dark',
   Light = 'light',
 }
 ```
 
-Add `lumaKey?: LumaKeyMode` and `lumaKeyThreshold?: number` to `NyxFissionConfig`, and re-export the enum from `src/index.ts`.
+Add `lumaKey?: LumaKey` and `lumaKeyThreshold?: number` to `NyxFissionConfig`, and re-export the enum from `src/index.ts`.
 
 - [x] **Step 2: Implement synchronous validation and resolved defaults**
 
-Track `lumaKey` and `lumaKeyThreshold` as resolved private values. Validate mode with `Object.values(LumaKeyMode)` and validate threshold with `Number.isFinite(value) && value >= 0 && value <= 1`, throwing `NyxError` with code `INVALID_CONFIG` and sampling stage. Resolve omitted values to `LumaKeyMode.None` and `0.1` before asynchronous lifecycle work begins.
+Track `lumaKey` and `lumaKeyThreshold` as resolved private values. Validate mode with `Object.values(LumaKey)` and validate threshold with `Number.isFinite(value) && value >= 0 && value <= 1`, throwing `NyxError` with code `INVALID_CONFIG` and sampling stage. Resolve omitted values to `LumaKey.None` and `0.1` before asynchronous lifecycle work begins.
 
 - [x] **Step 3: Pass resolved values to runtime construction**
 
@@ -98,7 +98,7 @@ Expected: PASS.
 
 - [x] **Step 1: Add fixed uniforms and numeric mode mapping**
 
-Accept `LumaKeyMode` and threshold in `ThreeRuntime`, validate the threshold at the rendering boundary, and initialize `lumaKeyMode` as `0.0`, `1.0`, or `2.0` for none, dark, or light plus `lumaKeyThreshold` with the supplied value. Do not add mutation methods.
+Accept `LumaKey` and threshold in `ThreeRuntime`, validate the threshold at the rendering boundary, and initialize `lumaKeyMode` as `0.0`, `1.0`, or `2.0` for none, dark, or light plus `lumaKeyThreshold` with the supplied value. Do not add mutation methods.
 
 - [x] **Step 2: Forward luminance from vertex to fragment**
 

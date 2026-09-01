@@ -14,7 +14,7 @@ import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
 import { validateParticleDepth } from './depth'
 import { NyxError } from './errors'
-import { LumaKeyMode, NyxErrorStage } from './types'
+import { LumaKey, NyxErrorStage } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
@@ -64,12 +64,12 @@ export class ThreeRuntime {
   private frameCallback: FrameCallback | undefined
   private readonly errorCallback: ErrorCallback | undefined
   private readonly depth: number
-  private readonly lumaKey: LumaKeyMode
+  private readonly lumaKey: LumaKey
   private readonly lumaKeyThreshold: number
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: LumaKeyMode = LumaKeyMode.None, lumaKeyThreshold = 0.1, errorCallback?: ErrorCallback) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: LumaKey = LumaKey.None, lumaKeyThreshold = 0.1, errorCallback?: ErrorCallback) {
     validateParticleDepth(depth, NyxErrorStage.Rendering)
-    if (!Object.values(LumaKeyMode).includes(lumaKey) || !Number.isFinite(lumaKeyThreshold) || lumaKeyThreshold < 0 || lumaKeyThreshold > 1) {
+    if (!Object.values(LumaKey).includes(lumaKey) || !Number.isFinite(lumaKeyThreshold) || lumaKeyThreshold < 0 || lumaKeyThreshold > 1) {
       throw new NyxError('Invalid luma-key configuration', 'INVALID_CONFIG', NyxErrorStage.Rendering)
     }
     this.errorCallback = errorCallback
@@ -88,7 +88,7 @@ export class ThreeRuntime {
       vertexShader,
       fragmentShader,
       transparent: true,
-      uniforms: { pointSize: { value: 3 }, depth: { value: depth }, lumaKeyMode: { value: this.lumaKey === LumaKeyMode.None ? 0 : this.lumaKey === LumaKeyMode.Dark ? 1 : 2 }, lumaKeyThreshold: { value: this.lumaKeyThreshold } },
+      uniforms: { pointSize: { value: 3 }, depth: { value: depth }, lumaKeyMode: { value: this.lumaKey === LumaKey.None ? 0 : this.lumaKey === LumaKey.Dark ? 1 : 2 }, lumaKeyThreshold: { value: this.lumaKeyThreshold } },
     })
     this.points = new Points(this.geometry, this.material)
     this.scene.add(this.points)

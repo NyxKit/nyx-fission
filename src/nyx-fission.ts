@@ -11,7 +11,7 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import { LumaKeyMode, MediaType, NyxErrorStage, NyxEventName, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
+import { LumaKey, MediaType, NyxErrorStage, NyxEvent, ThemeName, type NyxEventMap, type NyxFissionConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
@@ -19,7 +19,7 @@ const DEFAULT_DEPTH = 0.35
 const DEFAULT_LUMA_KEY_THRESHOLD = 0.1
 const mediaTypes: readonly MediaType[] = Object.values(MediaType)
 const themeNames: readonly ThemeName[] = Object.values(ThemeName)
-const lumaKeyModes: readonly LumaKeyMode[] = Object.values(LumaKeyMode)
+const lumaKeyModes: readonly LumaKey[] = Object.values(LumaKey)
 
 function validateConfig(config: NyxFissionConfig): void {
   if (config.type !== undefined && !mediaTypes.includes(config.type)) {
@@ -53,7 +53,7 @@ export class NyxFission {
   readonly ready: Promise<void>
 
   private readonly config: NyxFissionConfig
-  private readonly lumaKey: LumaKeyMode
+  private readonly lumaKey: LumaKey
   private readonly lumaKeyThreshold: number
   private readonly events = new NyxEventEmitter<NyxEventMap>()
   private readonly resolveReady: () => void
@@ -78,7 +78,7 @@ export class NyxFission {
   constructor(config: NyxFissionConfig = {}) {
     this.config = { ...config }
     validateConfig(this.config)
-    this.lumaKey = this.config.lumaKey ?? LumaKeyMode.None
+    this.lumaKey = this.config.lumaKey ?? LumaKey.None
     this.lumaKeyThreshold = this.config.lumaKeyThreshold ?? DEFAULT_LUMA_KEY_THRESHOLD
 
     let resolveReady!: () => void
@@ -91,7 +91,7 @@ export class NyxFission {
     this.rejectReady = rejectReady
     this.loadingReady = new Promise<void>((resolve) => {
       queueMicrotask(() => {
-        if (this.state !== 'destroyed') this.events.emit(NyxEventName.Loading, undefined)
+        if (this.state !== 'destroyed') this.events.emit(NyxEvent.Loading, undefined)
         resolve()
       })
     })
@@ -148,7 +148,7 @@ export class NyxFission {
     this.rejectReady(lifecycleError('NyxFission has been destroyed'))
     if (!this.destroyEmitted) {
       this.destroyEmitted = true
-       this.events.emit(NyxEventName.Destroy, undefined)
+       this.events.emit(NyxEvent.Destroy, undefined)
     }
     this.events.clear()
   }
@@ -195,7 +195,7 @@ export class NyxFission {
       this.runtime?.start((time) => this.renderFrame(time))
       this.state = 'ready'
       this.resolveReady()
-       this.events.emit(NyxEventName.Ready, undefined)
+       this.events.emit(NyxEvent.Ready, undefined)
     } catch (error) {
       this.fail(asNyxError(error, this.stageFor(error)))
     } finally {
@@ -265,7 +265,7 @@ export class NyxFission {
     this.rejectReady(error)
     if (!this.errorEmitted) {
       this.errorEmitted = true
-       this.events.emit(NyxEventName.Error, { error, stage: error.stage })
+       this.events.emit(NyxEvent.Error, { error, stage: error.stage })
     }
   }
 }

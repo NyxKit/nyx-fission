@@ -13,7 +13,7 @@ export enum ThemeName {
   Nyx = 'nyx',
 }
 
-export enum LumaKeyMode {
+export enum LumaKey {
   None = 'none',
   Dark = 'dark',
   Light = 'light',
@@ -25,11 +25,11 @@ export interface NyxFissionConfig {
   theme?: ThemeName
   querySelector?: string
   depth?: number
-  lumaKey?: LumaKeyMode
+  lumaKey?: LumaKey
   lumaKeyThreshold?: number
 }
 
-export enum NyxEventName {
+export enum NyxEvent {
   Loading = 'loading',
   Ready = 'ready',
   Error = 'error',
@@ -50,8 +50,8 @@ export interface NyxErrorEvent {
 }
 
 export type NyxEventMap = {
-  [NyxEventName.Loading]: void
-  [NyxEventName.Ready]: void
-  [NyxEventName.Error]: NyxErrorEvent
-  [NyxEventName.Destroy]: void
+  [NyxEvent.Loading]: void
+  [NyxEvent.Ready]: void
+  [NyxEvent.Error]: NyxErrorEvent
+  [NyxEvent.Destroy]: void
 }
