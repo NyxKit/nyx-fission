@@ -237,3 +237,25 @@ direct mounting path and presents the current lifecycle status once in the
 playground heading, such as `Live`, `Loading source`, or `Needs attention`. It
 does not append a duplicate `live` label or repeat a separate `LIVE OUTPUT`
 title.
+
+## Luma Keying
+
+Add an optional `lumaKey` mode with the values `none`, `dark`, and `light`.
+The omitted value defaults to `none`. Add an optional normalized
+`lumaKeyThreshold` in the range `0..1`, defaulting to `0.1`. Non-finite or
+out-of-range thresholds and unsupported modes are rejected as typed
+`INVALID_CONFIG` errors.
+
+Luma keying removes particles based on normalized luminance in the fragment
+shader without changing the stable particle buffers:
+
+- `none` keeps every particle.
+- `dark` discards particles with luminance `<= lumaKeyThreshold`.
+- `light` discards particles with luminance `>= 1 - lumaKeyThreshold`.
+
+The existing luminance attribute is forwarded to the fragment shader for this
+decision. The mode and threshold are fixed when an instance is created, while
+image, video, and webcam frame updates continue replacing luminance values in
+the existing GPU attribute. No runtime key setter, consumer-managed render
+loop, or `chromaKey` implementation is added in this scope; chroma keying is
+deferred to a separate design.
