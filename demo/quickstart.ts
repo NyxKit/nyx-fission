@@ -1,4 +1,7 @@
+import { LumaKeyMode } from '../src/index'
+
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
+export type QuickstartLumaKey = LumaKeyMode
 
 export const DEMO_DEPTH_DEFAULT = 0.35
 export const DEMO_DEPTH_MIN = -1
@@ -16,12 +19,13 @@ export function commitDemoDepth(input: string | number, currentDepth: number): n
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 
-export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number): string {
+export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = LumaKeyMode.None, lumaKeyThreshold = 0.1): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
     : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKeyMode.None, lumaKeyThreshold: 0.1`
+  const lumaKeyMember = lumaKey === LumaKeyMode.Dark ? 'Dark' : lumaKey === LumaKeyMode.Light ? 'Light' : 'None'
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKeyMode.${lumaKeyMember}, lumaKeyThreshold: ${String(Math.min(1, Math.max(0, lumaKeyThreshold)))}`
 
   return `import { LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
 

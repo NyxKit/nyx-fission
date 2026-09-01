@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildQuickstart, commitDemoDepth } from './quickstart'
+import { LumaKeyMode } from '../src/index'
 
 describe('buildQuickstart', () => {
   it.each([
@@ -50,5 +51,11 @@ describe('buildQuickstart', () => {
 
   it('accepts numeric values emitted by number inputs', () => {
     expect(commitDemoDepth(0.5, 0.35)).toBe(0.5)
+  })
+
+  it('includes selected luma-key settings in the generated example', () => {
+    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35, LumaKeyMode.Dark, 0.25)).toContain(
+      'lumaKey: LumaKeyMode.Dark, lumaKeyThreshold: 0.25',
+    )
   })
 })

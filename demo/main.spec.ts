@@ -51,10 +51,18 @@ describe('compiled demo entry', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
     const quickstart = readFileSync(resolve(demoDirectory, 'quickstart.ts'), 'utf8')
 
-    expect(app).toContain('lumaKey: LumaKeyMode.None')
-    expect(app).toContain('lumaKeyThreshold: 0.1')
-    expect(quickstart).toContain('lumaKey: LumaKeyMode.None')
-    expect(quickstart).toContain('lumaKeyThreshold: 0.1')
+    expect(app).toContain('lumaKey: lumaKey.value')
+    expect(app).toContain('lumaKeyThreshold: lumaKeyThreshold.value')
+    expect(quickstart).toContain('lumaKeyMember')
+    expect(quickstart).toContain('lumaKeyThreshold = 0.1')
+  })
+
+  it('exposes luma-key controls in the playground appearance rail', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+
+    expect(app).toContain('luma-key-mode')
+    expect(app).toContain('luma-key-threshold')
+    expect(app).not.toContain('class="status-block"')
   })
 
   it('keeps the playground focused on explicit mounting and live status', () => {
