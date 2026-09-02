@@ -565,7 +565,7 @@ describe('ThreeRuntime', () => {
     expect(fragmentShader).toContain('uniform float lumaKeyCoherence')
     expect(fragmentShader).toContain('particleLuminance <= lumaKeyThreshold')
     expect(fragmentShader).toContain('particleLuminance >= 1.0 - lumaKeyThreshold')
-    expect(fragmentShader).toContain('if (lumaKeyCoherence > 0.0 && particleCoherence < lumaKeyCoherence) discard')
+    expect(fragmentShader).toContain('if (lumaKeyMode > 0.0 && lumaKeyCoherence > 0.0 && particleCoherence < lumaKeyCoherence) discard')
     expect(fragmentShader.indexOf('particleLuminance <= lumaKeyThreshold')).toBeLessThan(fragmentShader.indexOf('particleCoherence < lumaKeyCoherence'))
     expect(fragmentShader.indexOf('particleCoherence < lumaKeyCoherence')).toBeLessThan(fragmentShader.indexOf('distanceFromCenter'))
   })
