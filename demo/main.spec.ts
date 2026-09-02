@@ -31,6 +31,25 @@ describe('compiled demo entry', () => {
     expect(app).toContain('createInstance()')
   })
 
+  it('wires hero creation, mounting, rejection cleanup, and unmount cleanup', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+    const heroStart = app.indexOf('const createHeroInstance = () => {')
+    const createInstanceStart = app.indexOf('const createInstance = async () => {', heroStart)
+    const heroLifecycle = app.slice(heroStart, createInstanceStart)
+    const unmountStart = app.indexOf('onBeforeUnmount(() => {')
+    const unmountBlock = app.slice(unmountStart, app.indexOf('\n})', unmountStart))
+
+    expect(heroStart).toBeGreaterThanOrEqual(0)
+    expect(heroLifecycle).toContain('const createHeroInstance = () => {')
+    expect(heroLifecycle).toContain('nextInstance.mount(target)')
+    expect(heroLifecycle).toContain('nextInstance.ready.catch(() => {')
+    expect(heroLifecycle).toContain('if (heroInstance.value === nextInstance)')
+    expect(heroLifecycle).toContain('nextInstance.destroy()')
+    expect(heroLifecycle).toContain('heroInstance.value = null')
+    expect(unmountBlock).toContain('heroInstance.value.destroy()')
+    expect(unmountBlock).toContain('heroInstance.value = null')
+  })
+
   it('keeps Vue ambient types out of the library declaration project', () => {
     const rootViteEnv = readFileSync(resolve(demoDirectory, '../src/vite-env.d.ts'), 'utf8')
     const demoViteEnv = readFileSync(resolve(demoDirectory, 'vite-env.d.ts'), 'utf8')
@@ -90,6 +109,15 @@ describe('compiled demo entry', () => {
     expect(styles).toContain('position: absolute')
     expect(styles).toContain('width: 1px')
     expect(styles).toContain('height: 1px')
+  })
+
+  it('stacks the hero preview responsively without obsolete signal styles', () => {
+    const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
+    const mobileStyles = styles.slice(styles.indexOf('@media (max-width: 800px)'))
+
+    expect(mobileStyles).toContain('.hero { min-height: auto; grid-template-columns: 1fr; }')
+    expect(mobileStyles).toContain('.hero-preview { margin-top: 20px; padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--demo-line); }')
+    expect(styles).not.toContain('.hero-signal')
   })
 
   it('uses the MP4 playground video fixture', () => {
