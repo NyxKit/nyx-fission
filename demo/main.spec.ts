@@ -15,6 +15,22 @@ describe('compiled demo entry', () => {
     expect(app).toContain('<canvas id="particles-canvas"')
   })
 
+  it('keeps the hero preview independent and default-only', () => {
+    const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+
+    expect(app).toContain('hero-canvas')
+    expect(app).toContain('heroCanvas')
+    expect(app).toContain('heroInstance')
+    expect(app).toContain('new NyxFission({ type: MediaType.Video, source: videoUrl })')
+    expect(app).not.toContain('browser particle engine')
+    expect(app).not.toContain('GPU</span>')
+    expect(app).not.toContain('MEDIA</span>')
+    expect(app).not.toContain('FIELD</span>')
+    expect(app).toContain('particles-canvas')
+    expect(app).toContain('class="control-rail"')
+    expect(app).toContain('createInstance()')
+  })
+
   it('keeps Vue ambient types out of the library declaration project', () => {
     const rootViteEnv = readFileSync(resolve(demoDirectory, '../src/vite-env.d.ts'), 'utf8')
     const demoViteEnv = readFileSync(resolve(demoDirectory, 'vite-env.d.ts'), 'utf8')

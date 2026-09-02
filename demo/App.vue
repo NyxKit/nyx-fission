@@ -2,9 +2,9 @@
 /* global URL, document, HTMLCanvasElement, window, navigator, HTMLInputElement */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { NyxBadge, NyxButton, NyxInput, NyxSelect } from 'nyx-kit/components'
+import { NyxButton, NyxInput, NyxSelect } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
-import { LumaKeyMode, NyxEvent, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
+import { LumaKeyMode, MediaType, NyxEvent, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
 import { buildQuickstart, commitDemoDepth, normalizeDemoDepth } from './quickstart'
 
 enum SourceChoice {
@@ -34,6 +34,8 @@ let lumaKeyThresholdApplyTimer: number | undefined
 let lumaKeyCoherenceApplyTimer: number | undefined
 const canvas = ref<HTMLCanvasElement | null>(null)
 const instance = ref<NyxFission | null>(null)
+const heroCanvas = ref<HTMLCanvasElement | null>(null)
+const heroInstance = ref<NyxFission | null>(null)
 const status = ref<Status>('Waiting for a source')
 const statusTheme = ref(NyxTheme.Info)
 const statusDetail = ref('Choose a source, then mount the field.')
@@ -162,6 +164,27 @@ const destroyInstance = () => {
   instance.value = null
 }
 
+const createHeroInstance = () => {
+  const target = heroCanvas.value
+  if (!target) return
+
+  let nextInstance: NyxFission | null = null
+  try {
+    nextInstance = new NyxFission({ type: MediaType.Video, source: videoUrl })
+    heroInstance.value = nextInstance
+    nextInstance.ready.catch(() => {
+      if (heroInstance.value === nextInstance) {
+        nextInstance.destroy()
+        heroInstance.value = null
+      }
+    })
+    nextInstance.mount(target)
+  } catch {
+    nextInstance?.destroy()
+    heroInstance.value = null
+  }
+}
+
 const createInstance = async () => {
   isUpdating.value = true
   destroyInstance()
@@ -251,6 +274,7 @@ const labelNyxControls = () => {
 onMounted(async () => {
   await nextTick()
   labelNyxControls()
+  createHeroInstance()
   void createInstance()
 })
  watch([theme, depth, lumaKey, lumaKeyThreshold, lumaKeyCoherence], () => { void createInstance() })
@@ -258,6 +282,10 @@ onBeforeUnmount(() => {
   if (depthApplyTimer !== undefined) window.clearTimeout(depthApplyTimer)
   if (lumaKeyThresholdApplyTimer !== undefined) window.clearTimeout(lumaKeyThresholdApplyTimer)
   if (lumaKeyCoherenceApplyTimer !== undefined) window.clearTimeout(lumaKeyCoherenceApplyTimer)
+  if (heroInstance.value) {
+    heroInstance.value.destroy()
+    heroInstance.value = null
+  }
   destroyInstance()
 })
 </script>
@@ -268,7 +296,7 @@ onBeforeUnmount(() => {
       <a class="wordmark" href="#top" aria-label="NyxFission home"><span class="wordmark-mark">N</span><span>nyx<span class="wordmark-muted">fission</span></span></a>
       <nav aria-label="Page sections"><a href="#playground">Playground</a><a href="#reference">Reference</a><a href="https://github.com/NyxKit/nyx-fission">GitHub</a></nav>
     </header>
-     <section class="hero" id="top"><div class="hero-copy"><NyxBadge :theme="NyxTheme.Primary" :variant="NyxVariant.Soft">browser particle engine</NyxBadge><p class="eyebrow">NYX / FISSION 0.1</p><h1>Media goes in.<br><em>Particles come alive.</em></h1><p class="lede">A tiny, framework-agnostic browser API for turning images, video, and webcam frames into a GPU-rendered field.</p><a class="text-link" href="#playground">Try the live field <span aria-hidden="true">↓</span></a></div><div class="hero-signal" aria-hidden="true"><span>GPU</span><span>MEDIA</span><span>FIELD</span></div></section>
+      <section class="hero" id="top"><div class="hero-copy"><p class="eyebrow">NYX / FISSION 0.1</p><h1>Media goes in.<br><em>Particles come alive.</em></h1><p class="lede">A tiny, framework-agnostic browser API for turning images, video, and webcam frames into a GPU-rendered field.</p><a class="text-link" href="#playground">Try the live field <span aria-hidden="true">↓</span></a></div><div class="hero-preview" aria-hidden="true"><div class="hero-preview-label">LIVE / NYX-ORBIT.MP4</div><canvas id="hero-canvas" ref="heroCanvas"></canvas></div></section>
      <div v-if="isUpdating" class="playground-updating" role="status" aria-live="polite"><span class="updating-spinner" aria-hidden="true"></span><span>Updating field</span></div>
        <section class="playground" id="playground" aria-labelledby="playground-title"><div class="section-heading"><div><p class="eyebrow">01 / playground</p><h2 id="playground-title">{{ status }}</h2></div><p class="section-note">The renderer owns sampling, animation, resize, and cleanup. You only choose what to feed it.</p></div><div class="stage-layout"><div class="stage-wrap"><div class="stage-meta"><span>640 × 480 target</span></div><div class="stage"><canvas id="particles-canvas" ref="canvas" aria-label="Live NyxFission particle output"></canvas><div class="stage-corner">NYX<br>FISSION</div></div><p class="stage-caption">A local SVG fixture is loaded first, so this surface works without a network request.</p></div><aside class="control-rail" aria-label="Demo controls"><fieldset><legend>Source</legend><div class="source-actions"><NyxButton :variant="sourceChoice === SourceChoice.Image ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource(SourceChoice.Image)">Image</NyxButton><NyxButton :variant="sourceChoice === SourceChoice.Video ? NyxVariant.Filled : NyxVariant.Outline" :theme="NyxTheme.Primary" :size="NyxSize.Small" @click="chooseSource(SourceChoice.Video)">Video</NyxButton><NyxButton :variant="NyxVariant.Outline" :theme="NyxTheme.Warning" :size="NyxSize.Small" @click="startWebcam">Enable webcam</NyxButton></div><label class="field-label" for="source-url">Media URL</label><div class="url-row"><NyxInput id="source-url" v-model="sourceUrl" :type="NyxInputType.Url" :size="NyxSize.Small" /><NyxButton :theme="NyxTheme.Secondary" :size="NyxSize.Small" @click="applySource">Apply</NyxButton></div><span id="url-help" class="help-text">Relative URLs resolve from <code>document.baseURI</code>.</span></fieldset><fieldset><legend>Appearance</legend><label class="field-label" for="theme-select-control">Particle theme</label><NyxSelect id="theme-select" v-model="theme" :options="themeOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /><label class="field-label" for="depth-control">Particle depth: {{ depth.toFixed(2) }}</label><NyxInput id="depth-control" :model-value="depthInput" @update:model-value="updateDepthInput" @blur="commitDepth" :type="NyxInputType.Number" :min="-1" :max="1" :step="0.05" :size="NyxSize.Small" /><span class="help-text">Signed depth maps luminance toward or away from the camera.</span><label class="field-label" for="luma-key-mode">Luma key</label><NyxSelect id="luma-key-mode" v-model="lumaKey" :options="lumaKeyOptions" :size="NyxSize.Small" :theme="NyxTheme.Primary" /><label class="field-label" for="luma-key-threshold">Luma threshold: {{ lumaKeyThreshold.toFixed(2) }}</label><NyxInput id="luma-key-threshold" :model-value="lumaKeyThresholdInput" @update:model-value="updateLumaKeyThresholdInput" @blur="commitLumaKeyThreshold" :type="NyxInputType.Number" :min="0" :max="1" :step="0.05" :size="NyxSize.Small" /><label class="field-label" for="luma-key-coherence">Luma coherence: {{ lumaKeyCoherence.toFixed(2) }}</label><NyxInput id="luma-key-coherence" :model-value="lumaKeyCoherenceInput" @update:model-value="updateLumaKeyCoherenceInput" @blur="commitLumaKeyCoherence" :type="NyxInputType.Number" :min="0" :max="1" :step="0.05" :size="NyxSize.Small" /><span class="help-text">Coherence keeps particles with local support in the sampled 3x3 grid.</span></fieldset></aside></div></section>
      <section class="quickstart" aria-labelledby="quickstart-title"><div><p class="eyebrow">02 / shortest path</p><h2 id="quickstart-title">One construct. One mount.</h2><p>NyxFission keeps the render loop and Three.js out of your application. Give it a source, then mount the canvas when you are ready.</p></div><div class="code-panel"><div class="code-bar"><span>quickstart.ts</span><NyxButton :variant="NyxVariant.Ghost" :size="NyxSize.Small" @click="copyExample">{{ copyLabel }}</NyxButton></div><pre><code>{{ quickstartCode }}</code></pre></div></section>
