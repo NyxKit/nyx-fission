@@ -121,17 +121,20 @@ describe('compiled demo entry', () => {
 
     expect(mobileStyles).toContain('.hero { min-height: auto; grid-template-columns: 1fr; }')
     expect(styles).toContain('.hero { min-height: 610px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr); align-items: center; position: relative; border-bottom: 0; }')
-    expect(previewStyles).toContain('margin-right: -')
+    expect(previewStyles).toContain('margin-left: -')
+    expect(previewStyles).not.toContain('margin-right:')
     expect(previewStyles).toContain('transform: translateY(')
     expect(previewStyles).not.toContain('border-left: 1px solid var(--demo-line)')
     expect(previewStyles).not.toContain('background: var(--nyx-c-bg-mute)')
     expect(previewStyles).not.toContain('border: 1px solid var(--demo-line)')
     expect(styles).not.toContain('.hero-preview-label')
-    expect(mobileStyles).toContain('.hero-preview { margin: 20px 0 0; padding: 20px 0 0; transform: none; border-top: 0; }')
+    expect(mobileStyles).toContain('.hero-preview { margin: 20px 0 0; margin-left: 0; padding: 20px 0 0; transform: none; border-top: 0; }')
+    expect(mobileStyles).toContain('margin-left: 0')
     expect(mobilePreviewStyles).not.toContain('background:')
     expect(mobilePreviewStyles).not.toContain('border:')
     expect(mobileStyles).toContain('.hero-preview canvas { width: 100%; }')
     expect(styles).not.toContain('.hero-signal')
+    expect(previewStyles).toContain('.hero-preview canvas { display: block; width: 100%; max-width: none; aspect-ratio: 4 / 3; }')
   })
 
   it('uses the MP4 playground video fixture', () => {

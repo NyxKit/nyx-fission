@@ -28,8 +28,8 @@ h1 { margin: 18px 0 24px; font: 700 clamp(52px, 8vw, 104px)/.93 var(--nyx-font-f
 h1 em { color: var(--demo-accent); font-style: normal; }
 .lede { max-width: 52ch; color: var(--demo-muted); font-size: 19px; line-height: 1.55; }
 .text-link { display: inline-block; margin-top: 32px; color: var(--demo-ink); font: 700 13px var(--nyx-font-family-mono); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--demo-accent); padding-bottom: 5px; }
-.hero-preview { position: relative; align-self: center; min-width: 0; margin-right: -10%; padding: 0; transform: translateY(28px); z-index: 1; }
-.hero-preview canvas { display: block; width: 115%; max-width: none; aspect-ratio: 4 / 3; }
+.hero-preview { position: relative; align-self: center; min-width: 0; margin-left: -10%; padding: 0; transform: translateY(28px); z-index: 1; }
+.hero-preview canvas { display: block; width: 100%; max-width: none; aspect-ratio: 4 / 3; }
 section { padding: 104px 0; }
 .section-heading { display: flex; justify-content: space-between; gap: 40px; align-items: end; margin-bottom: 38px; }
 h2 { margin-bottom: 0; font-size: clamp(30px, 4vw, 54px); line-height: 1; letter-spacing: -.04em; }
@@ -79,7 +79,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 20px
   nav a:not(:first-child) { display: none; }
   .hero { min-height: auto; grid-template-columns: 1fr; }
   .hero-copy { padding: 72px 0 48px; }
-  .hero-preview { margin: 20px 0 0; padding: 20px 0 0; transform: none; border-top: 0; }
+  .hero-preview { margin: 20px 0 0; margin-left: 0; padding: 20px 0 0; transform: none; border-top: 0; }
   .hero-preview canvas { width: 100%; }
   section { padding: 72px 0; }
   .section-heading, .quickstart { display: block; }
