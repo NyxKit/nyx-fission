@@ -35,8 +35,8 @@ function validateConfig(config: NyxFissionConfig): ResolvedLumaKeyConfig {
   if (mode === undefined || !lumaKeyModes.includes(mode)) {
     throw new NyxError(`Unsupported luma-key mode: ${String(mode)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
-  const threshold = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.threshold ?? DEFAULT_LUMA_KEY_THRESHOLD : DEFAULT_LUMA_KEY_THRESHOLD
-  const coherence = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.coherence ?? DEFAULT_LUMA_KEY_COHERENCE : DEFAULT_LUMA_KEY_COHERENCE
+  const threshold = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.threshold === undefined ? DEFAULT_LUMA_KEY_THRESHOLD : lumaKey.threshold : DEFAULT_LUMA_KEY_THRESHOLD
+  const coherence = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.coherence === undefined ? DEFAULT_LUMA_KEY_COHERENCE : lumaKey.coherence : DEFAULT_LUMA_KEY_COHERENCE
   for (const [name, value] of [['threshold', threshold], ['coherence', coherence]] as const) {
     if (!Number.isFinite(value) || value < 0 || value > 1) {
       throw new NyxError(`Luma-key ${name} must be finite and within 0..1`, 'INVALID_CONFIG', NyxErrorStage.Sampling)

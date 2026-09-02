@@ -148,7 +148,7 @@ describe('NyxFission orchestration', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, threshold } })).not.toThrow()
   })
 
-  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01])('rejects invalid luma-key threshold %s', (threshold) => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01, null as unknown as number])('rejects invalid luma-key threshold %s', (threshold) => {
     expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, threshold } })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
@@ -158,7 +158,7 @@ describe('NyxFission orchestration', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, coherence } })).not.toThrow()
   })
 
-  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01])('rejects invalid luma-key coherence %s', (coherence) => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01, null as unknown as number])('rejects invalid luma-key coherence %s', (coherence) => {
     expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, coherence } })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
