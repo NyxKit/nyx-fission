@@ -14,7 +14,7 @@ import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
 import { validateParticleDepth } from './depth'
 import { NyxError } from './errors'
-import { LumaKey, NyxErrorStage } from './types'
+import { LumaKeyMode, NyxErrorStage, type ResolvedLumaKeyConfig } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
@@ -58,24 +58,27 @@ export class ThreeRuntime {
   private positionAttribute: Float32BufferAttribute | undefined
   private colorAttribute: Float32BufferAttribute | undefined
   private luminanceAttribute: Float32BufferAttribute | undefined
+  private coherenceAttribute: Float32BufferAttribute | undefined
   private frameId: number | undefined
   private running = false
   private disposed = false
   private frameCallback: FrameCallback | undefined
   private readonly errorCallback: ErrorCallback | undefined
   private readonly depth: number
-  private readonly lumaKey: LumaKey
+  private readonly lumaKey: LumaKeyMode
   private readonly lumaKeyThreshold: number
+  private readonly lumaKeyCoherence: number
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: LumaKey = LumaKey.None, lumaKeyThreshold = 0.1, errorCallback?: ErrorCallback) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: ErrorCallback) {
     validateParticleDepth(depth, NyxErrorStage.Rendering)
-    if (!Object.values(LumaKey).includes(lumaKey) || !Number.isFinite(lumaKeyThreshold) || lumaKeyThreshold < 0 || lumaKeyThreshold > 1) {
+    if (!Object.values(LumaKeyMode).includes(lumaKey.mode) || !Number.isFinite(lumaKey.threshold) || lumaKey.threshold < 0 || lumaKey.threshold > 1 || !Number.isFinite(lumaKey.coherence) || lumaKey.coherence < 0 || lumaKey.coherence > 1) {
       throw new NyxError('Invalid luma-key configuration', 'INVALID_CONFIG', NyxErrorStage.Rendering)
     }
     this.errorCallback = errorCallback
     this.depth = depth
-    this.lumaKey = lumaKey
-    this.lumaKeyThreshold = lumaKeyThreshold
+    this.lumaKey = lumaKey.mode
+    this.lumaKeyThreshold = lumaKey.threshold
+    this.lumaKeyCoherence = lumaKey.coherence
     this.canvas = canvas
     const size = canvasSize(canvas)
     this.scene = new Scene()
@@ -88,7 +91,7 @@ export class ThreeRuntime {
       vertexShader,
       fragmentShader,
       transparent: true,
-      uniforms: { pointSize: { value: 3 }, depth: { value: depth }, lumaKeyMode: { value: this.lumaKey === LumaKey.None ? 0 : this.lumaKey === LumaKey.Dark ? 1 : 2 }, lumaKeyThreshold: { value: this.lumaKeyThreshold } },
+      uniforms: { pointSize: { value: 3 }, depth: { value: depth }, lumaKeyMode: { value: this.lumaKey === LumaKeyMode.None ? 0 : this.lumaKey === LumaKeyMode.Dark ? 1 : 2 }, lumaKeyThreshold: { value: this.lumaKeyThreshold }, lumaKeyCoherence: { value: this.lumaKeyCoherence } },
     })
     this.points = new Points(this.geometry, this.material)
     this.scene.add(this.points)
@@ -146,19 +149,22 @@ export class ThreeRuntime {
     if (!geometry || !points) {
       throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
     }
-    if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length && this.luminanceAttribute?.array.length === field.luminance.length) {
+    if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length && this.luminanceAttribute?.array.length === field.luminance.length && this.coherenceAttribute?.array.length === field.coherence.length) {
       this.positionAttribute.array.set(field.positions)
       this.positionAttribute.needsUpdate = true
       this.colorAttribute.array.set(field.colors)
       this.colorAttribute.needsUpdate = true
       this.luminanceAttribute.array.set(field.luminance)
       this.luminanceAttribute.needsUpdate = true
+      this.coherenceAttribute.array.set(field.coherence)
+      this.coherenceAttribute.needsUpdate = true
       return
     }
 
     const positionAttribute = new Float32BufferAttribute(field.positions, 3)
     const colorAttribute = new Float32BufferAttribute(field.colors, 3)
     const luminanceAttribute = new Float32BufferAttribute(field.luminance, 1)
+    const coherenceAttribute = new Float32BufferAttribute(field.coherence, 1)
     let targetGeometry = geometry
     if (this.positionAttribute || this.colorAttribute) {
       geometry.dispose()
@@ -169,9 +175,11 @@ export class ThreeRuntime {
     targetGeometry.setAttribute('position', positionAttribute)
     targetGeometry.setAttribute('color', colorAttribute)
     targetGeometry.setAttribute('luminance', luminanceAttribute)
+    targetGeometry.setAttribute('coherence', coherenceAttribute)
     this.positionAttribute = positionAttribute
     this.colorAttribute = colorAttribute
     this.luminanceAttribute = luminanceAttribute
+    this.coherenceAttribute = coherenceAttribute
   }
 
   start(frameCallback: FrameCallback): void {
@@ -224,6 +232,7 @@ export class ThreeRuntime {
     this.positionAttribute = undefined
     this.colorAttribute = undefined
     this.luminanceAttribute = undefined
+    this.coherenceAttribute = undefined
     this.points = undefined
     this.geometry = undefined
     this.canvas = undefined

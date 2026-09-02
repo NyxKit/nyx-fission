@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NyxError } from '../errors'
 import { ThreeRuntime } from '../runtime'
-import { LumaKey } from '../types'
+import { LumaKeyMode, type ResolvedLumaKeyConfig } from '../types'
 import type { ParticleField } from '../particles'
 import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
@@ -109,7 +109,16 @@ function field(pointCount = 1): ParticleField {
     positions: new Float32Array(pointCount * 3),
     colors: new Float32Array(pointCount * 3).fill(1),
     luminance: new Float32Array(pointCount).fill(0.5),
+    coherence: new Float32Array(pointCount).fill(0.75),
   } as ParticleField
+}
+
+function lumaKey(mode = LumaKeyMode.None, threshold = 0.1, coherence = 0): ResolvedLumaKeyConfig {
+  return { mode, threshold, coherence }
+}
+
+function createRuntime(target: HTMLCanvasElement, particles: ParticleField, depth: number, filter = lumaKey(), onError?: (_error: unknown) => void): ThreeRuntime {
+  return new ThreeRuntime(target, particles, depth, filter, onError)
 }
 
 function canvas(width = 640, height = 360): HTMLCanvasElement {
@@ -143,7 +152,7 @@ describe('ThreeRuntime', () => {
   it('creates and attaches the Three.js particle scene', () => {
     const target = canvas()
 
-    const runtime = new ThreeRuntime(target, field(), 0.35, LumaKey.Dark, 0.25)
+    const runtime = createRuntime(target, field(), 0.35, lumaKey(LumaKeyMode.Dark, 0.25, 0.4))
 
     expect(three.Scene).toHaveBeenCalledTimes(1)
     expect(three.PerspectiveCamera).toHaveBeenCalledWith(50, 640 / 360, expect.any(Number), expect.any(Number))
@@ -159,7 +168,9 @@ describe('ThreeRuntime', () => {
     expect(uniforms.depth.value).toBe(0.35)
     expect(uniforms.lumaKeyMode.value).toBe(1)
     expect(uniforms.lumaKeyThreshold.value).toBe(0.25)
+    expect(uniforms.lumaKeyCoherence.value).toBe(0.4)
     expect(vi.mocked(three.BufferGeometry).mock.results[0].value.attributes.luminance.array).toHaveLength(1)
+    expect(vi.mocked(three.BufferGeometry).mock.results[0].value.attributes.coherence.array).toHaveLength(1)
     expect(three.WebGLRenderer).toHaveBeenCalledWith({ canvas: target, alpha: true, antialias: true })
     expect(observer.observe).toHaveBeenCalledWith(target)
 
@@ -167,19 +178,22 @@ describe('ThreeRuntime', () => {
   })
 
   it.each([
-    [LumaKey.None, 0],
-    [LumaKey.Dark, 1],
-    [LumaKey.Light, 2],
+    [LumaKeyMode.None, 0],
+    [LumaKeyMode.Dark, 1],
+    [LumaKeyMode.Light, 2],
   ] as const)('maps %s to the corresponding shader mode', (mode, numericMode) => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35, mode, 0.1)
+    const runtime = createRuntime(canvas(), field(), 0.35, lumaKey(mode, 0.25, 0.6))
 
-    expect(vi.mocked(three.ShaderMaterial).mock.results[0].value.uniforms.lumaKeyMode.value).toBe(numericMode)
+    const uniforms = vi.mocked(three.ShaderMaterial).mock.results[0].value.uniforms
+    expect(uniforms.lumaKeyMode.value).toBe(numericMode)
+    expect(uniforms.lumaKeyThreshold.value).toBe(0.25)
+    expect(uniforms.lumaKeyCoherence.value).toBe(0.6)
     runtime.dispose()
   })
 
   it('schedules the internal loop and delegates each frame callback', () => {
     const callback = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     const scene = vi.mocked(three.Scene).mock.results[0].value
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
@@ -199,7 +213,7 @@ describe('ThreeRuntime', () => {
   it('does not start a second loop when a frame callback calls start', () => {
     let runtime: ThreeRuntime
     const callback = vi.fn(() => runtime.start(callback))
-    runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    runtime = createRuntime(canvas(), field(), 0.35)
     runtime.start(callback)
 
     const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
@@ -213,7 +227,7 @@ describe('ThreeRuntime', () => {
   it('does not render or schedule another frame when the callback disposes', () => {
     const renderer = vi.mocked(three.WebGLRenderer)
     let runtime: ThreeRuntime
-    runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    runtime = createRuntime(canvas(), field(), 0.35)
     runtime.start(() => runtime.dispose())
 
     const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
@@ -226,7 +240,7 @@ describe('ThreeRuntime', () => {
   it('reports and disposes the runtime when a frame callback throws', () => {
     const cause = new Error('frame failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKey.None, 0.1, onError)
+    const runtime = createRuntime(canvas(), field(), 0, lumaKey(), onError)
     runtime.start(() => {
       throw cause
     })
@@ -243,7 +257,7 @@ describe('ThreeRuntime', () => {
 
   it('resizes the renderer and camera from the content box', () => {
     const target = canvas()
-    const runtime = new ThreeRuntime(target, field(), 0.35)
+    const runtime = createRuntime(target, field(), 0.35)
 
     resizeCallback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
 
@@ -255,7 +269,7 @@ describe('ThreeRuntime', () => {
   })
 
   it('keeps the same perspective framing when resized to portrait', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), -0.75)
+    const runtime = createRuntime(canvas(), field(), -0.75)
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
     const initialZ = camera.position.z
 
@@ -273,7 +287,7 @@ describe('ThreeRuntime', () => {
   })
 
   it('frames the full field on landscape resize as well', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.75)
+    const runtime = createRuntime(canvas(), field(), 0.75)
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
 
     resizeCallback([{ contentRect: { width: 1280, height: 360 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
@@ -286,7 +300,7 @@ describe('ThreeRuntime', () => {
   })
 
   it.each([FLOAT32_SAFE_DEPTH, -FLOAT32_SAFE_DEPTH])('keeps camera framing and the shader uniform finite at the supported depth bound %s', (depth) => {
-    const runtime = new ThreeRuntime(canvas(), field(), depth)
+    const runtime = createRuntime(canvas(), field(), depth)
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
     const material = vi.mocked(three.ShaderMaterial).mock.results[0].value
 
@@ -303,13 +317,25 @@ describe('ThreeRuntime', () => {
   })
 
   it.each([FLOAT32_SAFE_DEPTH * 1.1, Number.MAX_VALUE])('rejects depth beyond the supported framing bound %s', (depth) => {
-    expect(() => new ThreeRuntime(canvas(), field(), depth)).toThrowError(
+    expect(() => createRuntime(canvas(), field(), depth)).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'rendering' }),
+    )
+  })
+
+  it.each([
+    { mode: 'mid' as LumaKeyMode, threshold: 0.1, coherence: 0 },
+    { mode: LumaKeyMode.Dark, threshold: Number.NaN, coherence: 0 },
+    { mode: LumaKeyMode.Dark, threshold: 0.1, coherence: Number.POSITIVE_INFINITY },
+    { mode: LumaKeyMode.Dark, threshold: -0.01, coherence: 0 },
+    { mode: LumaKeyMode.Dark, threshold: 0.1, coherence: 1.01 },
+  ])('rejects invalid luma-key settings at the rendering boundary', (filter) => {
+    expect(() => createRuntime(canvas(), field(), 0, filter)).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'rendering' }),
     )
   })
 
   it('disposes all owned resources and the pending frame', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     const scene = vi.mocked(three.Scene).mock.results[0].value
     const points = vi.mocked(three.Points).mock.results[0].value
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
@@ -336,6 +362,8 @@ describe('ThreeRuntime', () => {
       observer: undefined,
       positionAttribute: undefined,
       colorAttribute: undefined,
+      luminanceAttribute: undefined,
+      coherenceAttribute: undefined,
       points: undefined,
       geometry: undefined,
     })
@@ -345,7 +373,7 @@ describe('ThreeRuntime', () => {
   })
 
   it('ignores queued resize callbacks after disposal', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     const camera = vi.mocked(three.PerspectiveCamera).mock.results[0].value
 
@@ -359,7 +387,7 @@ describe('ThreeRuntime', () => {
   it('reports and disposes a typed error when observed resize fails', () => {
     const cause = new Error('resize failed')
     const onError = vi.fn()
-    const runtime = new ThreeRuntime(canvas(), field(), 0, LumaKey.None, 0.1, onError)
+    const runtime = createRuntime(canvas(), field(), 0, lumaKey(), onError)
     const renderer = vi.mocked(three.WebGLRenderer).mock.results[0].value
     renderer.setSize.mockImplementationOnce(() => {
       throw cause
@@ -384,7 +412,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field(), 0)
+      createRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -404,7 +432,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field(), 0)
+      createRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -418,33 +446,39 @@ describe('ThreeRuntime', () => {
   })
 
   it('updates existing buffer attributes in place when field sizes match', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
     const attributes = vi.mocked(three.Float32BufferAttribute).mock.results
     const initialPosition = attributes[0].value
     const initialColor = attributes[1].value
     const initialLuminance = attributes[2].value
+    const initialCoherence = attributes[3].value
+    const initialCoherenceArray = initialCoherence.array
     const nextField = field()
     nextField.positions[0] = 0.5
     nextField.colors[0] = 0.25
     nextField.luminance[0] = 0.75
+    nextField.coherence[0] = 0.25
 
     runtime.setField(nextField)
 
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
     expect(geometry.dispose).not.toHaveBeenCalled()
-    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(4)
     expect(initialPosition.array[0]).toBe(0.5)
     expect(initialPosition.needsUpdate).toBe(true)
     expect(initialColor.array[0]).toBe(0.25)
     expect(initialColor.needsUpdate).toBe(true)
     expect(initialLuminance.array[0]).toBe(0.75)
     expect(initialLuminance.needsUpdate).toBe(true)
+    expect(initialCoherence.array[0]).toBe(0.25)
+    expect(initialCoherence.array).toBe(initialCoherenceArray)
+    expect(initialCoherence.needsUpdate).toBe(true)
     runtime.dispose()
   })
 
   it('replaces and disposes geometry when field sizes change', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     const geometry = vi.mocked(three.BufferGeometry).mock.results[0].value
 
     runtime.setField(field(2))
@@ -453,13 +487,14 @@ describe('ThreeRuntime', () => {
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledTimes(2)
     const replacementGeometry = vi.mocked(three.BufferGeometry).mock.results[1].value
     expect(replacementGeometry.attributes.luminance.array).toHaveLength(2)
+    expect(replacementGeometry.attributes.coherence.array).toHaveLength(2)
     expect(vi.mocked(three.Points)).toHaveBeenCalledOnce()
     expect(vi.mocked(three.ShaderMaterial)).toHaveBeenCalledOnce()
     runtime.dispose()
   })
 
   it('rejects field updates after disposal with a typed lifecycle error', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35)
+    const runtime = createRuntime(canvas(), field(), 0.35)
     runtime.dispose()
 
     expect(() => runtime.setField(field())).toThrowError(NyxError)
@@ -469,7 +504,7 @@ describe('ThreeRuntime', () => {
       expect(error).toMatchObject({ code: 'DESTROYED', stage: 'rendering' })
     }
     expect(vi.mocked(three.BufferGeometry)).toHaveBeenCalledOnce()
-    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(three.Float32BufferAttribute)).toHaveBeenCalledTimes(4)
   })
 
   it('cleans up when initial renderer sizing fails', () => {
@@ -478,7 +513,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field(), 0)
+      createRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -497,7 +532,7 @@ describe('ThreeRuntime', () => {
 
     let thrown: unknown
     try {
-      new ThreeRuntime(canvas(), field(), 0)
+      createRuntime(canvas(), field(), 0)
     } catch (error) {
       thrown = error
     }
@@ -510,25 +545,33 @@ describe('ThreeRuntime', () => {
     expect(vertexShader).toMatch(/(?:attribute|in)\s+vec3\s+color\s*;/)
     expect(vertexShader).toMatch(/uniform\s+float\s+depth\s*;/)
     expect(vertexShader).toMatch(/attribute\s+float\s+luminance\s*;/)
+    expect(vertexShader).toMatch(/attribute\s+float\s+coherence\s*;/)
     expect(vertexShader).toContain('displacedPosition.z = luminance * depth')
     expect(vertexShader).toContain('gl_PointSize = pointSize')
     expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0)')
     expect(vertexShader).toContain('particleColor = color')
     expect(vertexShader).toContain('varying float particleLuminance')
     expect(vertexShader).toContain('particleLuminance = luminance')
+    expect(vertexShader).toContain('varying float particleCoherence')
+    expect(vertexShader).toContain('particleCoherence = coherence')
   })
 
   it('uses ordered smoothstep edges for soft circular alpha', () => {
     expect(fragmentShader).toContain('1.0 - smoothstep(0.35, 0.5, distanceFromCenter)')
     expect(fragmentShader).toContain('varying float particleLuminance')
+    expect(fragmentShader).toContain('varying float particleCoherence')
     expect(fragmentShader).toContain('uniform float lumaKeyMode')
     expect(fragmentShader).toContain('uniform float lumaKeyThreshold')
+    expect(fragmentShader).toContain('uniform float lumaKeyCoherence')
     expect(fragmentShader).toContain('particleLuminance <= lumaKeyThreshold')
     expect(fragmentShader).toContain('particleLuminance >= 1.0 - lumaKeyThreshold')
+    expect(fragmentShader).toContain('if (lumaKeyCoherence > 0.0 && particleCoherence < lumaKeyCoherence) discard')
+    expect(fragmentShader.indexOf('particleLuminance <= lumaKeyThreshold')).toBeLessThan(fragmentShader.indexOf('particleCoherence < lumaKeyCoherence'))
+    expect(fragmentShader.indexOf('particleCoherence < lumaKeyCoherence')).toBeLessThan(fragmentShader.indexOf('distanceFromCenter'))
   })
 
   it('does not expose runtime luma-key setters', () => {
-    const runtime = new ThreeRuntime(canvas(), field(), 0.35, LumaKey.None, 0.1)
+    const runtime = createRuntime(canvas(), field(), 0.35, lumaKey())
 
     expect('setLumaKey' in runtime).toBe(false)
     expect('setLumaKeyThreshold' in runtime).toBe(false)
