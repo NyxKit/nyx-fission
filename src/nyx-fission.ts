@@ -198,7 +198,7 @@ export class NyxFission {
         return
       }
       this.source = source
-      this.sampler = new FrameSampler(source)
+      this.sampler = new FrameSampler(source, type === MediaType.Usermedia)
       this.renderFirstFrame(canvas)
       this.runtime?.start((time) => this.renderFrame(time))
       this.state = 'ready'

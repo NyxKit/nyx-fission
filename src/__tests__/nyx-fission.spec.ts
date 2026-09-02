@@ -6,6 +6,7 @@ import { LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type Resolv
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
+  frameSampler: vi.fn(),
   sample: vi.fn(),
   createParticleField: vi.fn(),
   updateParticleField: vi.fn(),
@@ -27,6 +28,10 @@ vi.mock('../frame-sampler', () => ({
   FrameSampler: class {
     sample = mocks.sample
     dispose = vi.fn()
+
+    constructor(source: unknown, mirror: boolean) {
+      mocks.frameSampler(source, mirror)
+    }
   },
 }))
 vi.mock('../runtime', () => ({
@@ -395,6 +400,32 @@ describe('NyxFission orchestration', () => {
     expect(mocks.resolveMediaType).toHaveBeenCalledWith('video', 'http://localhost:3000/portrait.jpg')
     expect(mocks.loadMediaSource).toHaveBeenLastCalledWith('./portrait.jpg', 'video', expect.any(AbortSignal))
     explicit.destroy()
+  })
+
+  it('mirrors only usermedia sources when constructing the sampler', async () => {
+    mocks.loadMediaSource
+      .mockResolvedValueOnce({ kind: 'image', width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() })
+      .mockResolvedValueOnce({ kind: 'video', width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() })
+      .mockResolvedValueOnce({ kind: 'usermedia', width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() })
+
+    const image = new NyxFission({ source: './portrait.jpg', type: MediaType.Image })
+    image.mount(canvas())
+    await image.ready
+    image.destroy()
+
+    const video = new NyxFission({ source: './portrait.mp4', type: MediaType.Video })
+    video.mount(canvas())
+    await video.ready
+    video.destroy()
+
+    const usermedia = new NyxFission({ type: MediaType.Usermedia })
+    usermedia.mount(canvas())
+    await usermedia.ready
+
+    expect(mocks.frameSampler).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: 'image' }), false)
+    expect(mocks.frameSampler).toHaveBeenNthCalledWith(2, expect.objectContaining({ kind: 'video' }), false)
+    expect(mocks.frameSampler).toHaveBeenNthCalledWith(3, expect.objectContaining({ kind: 'usermedia' }), true)
+    usermedia.destroy()
   })
 
   it('rejects duplicate mounts', () => {

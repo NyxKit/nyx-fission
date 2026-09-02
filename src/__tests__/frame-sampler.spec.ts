@@ -44,6 +44,102 @@ describe('FrameSampler', () => {
     expect(document.createElement).toHaveBeenCalledOnce()
   })
 
+  it('mirrors usermedia frames before reading image data', () => {
+    const imageData = { data: new Uint8ClampedArray(8), width: 2, height: 1 } as ImageData
+    const context = {
+      save: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      drawImage: vi.fn(),
+      restore: vi.fn(),
+      getImageData: vi.fn(() => imageData),
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => context),
+    }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(
+      canvas as unknown as HTMLElement,
+    )
+    const source = {
+      kind: 'usermedia' as const,
+      element: {} as HTMLVideoElement,
+      width: 2,
+      height: 1,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    new FrameSampler(source, true).sample()
+
+    expect(context.save).toHaveBeenCalledOnce()
+    expect(context.translate).toHaveBeenCalledWith(2, 0)
+    expect(context.scale).toHaveBeenCalledWith(-1, 1)
+    expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 2, 1)
+    expect(context.restore).toHaveBeenCalledOnce()
+    expect(context.getImageData).toHaveBeenCalledWith(0, 0, 2, 1)
+    expect(context.save.mock.invocationCallOrder[0]).toBeLessThan(context.translate.mock.invocationCallOrder[0])
+    expect(context.translate.mock.invocationCallOrder[0]).toBeLessThan(context.scale.mock.invocationCallOrder[0])
+    expect(context.scale.mock.invocationCallOrder[0]).toBeLessThan(context.drawImage.mock.invocationCallOrder[0])
+    expect(context.drawImage.mock.invocationCallOrder[0]).toBeLessThan(context.restore.mock.invocationCallOrder[0])
+    expect(context.restore.mock.invocationCallOrder[0]).toBeLessThan(context.getImageData.mock.invocationCallOrder[0])
+  })
+
+  it('does not transform URL-video frames when mirroring is disabled', () => {
+    const context = {
+      save: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      drawImage: vi.fn(),
+      restore: vi.fn(),
+      getImageData: vi.fn(),
+    }
+    const canvas = { width: 0, height: 0, getContext: vi.fn(() => context) }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(canvas as unknown as HTMLElement)
+    const source = {
+      kind: 'video' as const,
+      element: {} as HTMLVideoElement,
+      width: 2,
+      height: 1,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    new FrameSampler(source, false).sample()
+
+    expect(context.drawImage).toHaveBeenCalledWith(source.element, 0, 0, 2, 1)
+    expect(context.save).not.toHaveBeenCalled()
+    expect(context.translate).not.toHaveBeenCalled()
+    expect(context.scale).not.toHaveBeenCalled()
+    expect(context.restore).not.toHaveBeenCalled()
+  })
+
+  it('restores the context when a mirrored draw fails', () => {
+    const failure = new Error('draw failed')
+    const context = {
+      save: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      drawImage: vi.fn(() => { throw failure }),
+      restore: vi.fn(),
+      getImageData: vi.fn(),
+    }
+    const canvas = { width: 0, height: 0, getContext: vi.fn(() => context) }
+    vi.spyOn(document, 'createElement').mockReturnValueOnce(canvas as unknown as HTMLElement)
+    const source = {
+      kind: 'usermedia' as const,
+      element: {} as HTMLVideoElement,
+      width: 2,
+      height: 1,
+      getFrameSource: () => source.element,
+      dispose: vi.fn(),
+    }
+
+    expect(() => new FrameSampler(source, true).sample()).toThrow(failure)
+    expect(context.restore).toHaveBeenCalledOnce()
+  })
+
   it('maps canvas security errors to MEDIA_CORS_FAILED', () => {
     const context = {
       drawImage: vi.fn(),

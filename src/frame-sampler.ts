@@ -28,9 +28,11 @@ export class FrameSampler {
   private disposed = false
 
   private readonly source: LoadedSource
+  private readonly mirror: boolean
 
-  constructor(source: LoadedSource) {
+  constructor(source: LoadedSource, mirror = false) {
     this.source = source
+    this.mirror = mirror
     this.canvas = document.createElement('canvas')
     const context = this.canvas.getContext('2d')
     if (!context) {
@@ -61,13 +63,19 @@ export class FrameSampler {
     }
 
     try {
-      this.context.drawImage(
-        this.source.getFrameSource(),
-        0,
-        0,
-        this.width,
-        this.height,
-      )
+      const source = this.source.getFrameSource()
+      if (!this.mirror) {
+        this.context.drawImage(source, 0, 0, this.width, this.height)
+      } else {
+        this.context.save()
+        try {
+          this.context.translate(this.width, 0)
+          this.context.scale(-1, 1)
+          this.context.drawImage(source, 0, 0, this.width, this.height)
+        } finally {
+          this.context.restore()
+        }
+      }
       // getImageData() has no destination-buffer argument; bounded allocation per dynamic frame is required.
       return this.context.getImageData(0, 0, this.width, this.height)
     } catch (cause) {
