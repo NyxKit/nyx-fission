@@ -1,7 +1,7 @@
-import { LumaKey } from '../src/index'
+import { LumaKeyMode, type LumaKeyConfig } from '../src/index'
 
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
-export type QuickstartLumaKey = LumaKey
+export type QuickstartLumaKey = LumaKeyConfig
 
 export const DEMO_DEPTH_DEFAULT = 0.35
 export const DEMO_DEPTH_MIN = -1
@@ -19,15 +19,18 @@ export function commitDemoDepth(input: string | number, currentDepth: number): n
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 
-export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = LumaKey.None, lumaKeyThreshold = 0.1): string {
+export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = { mode: LumaKeyMode.None }): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
     : `type: MediaType.${typeMember}, source: ${JSON.stringify(sourceUrl)}`
-  const lumaKeyMember = lumaKey === LumaKey.Dark ? 'Dark' : lumaKey === LumaKey.Light ? 'Light' : 'None'
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: LumaKey.${lumaKeyMember}, lumaKeyThreshold: ${String(Math.min(1, Math.max(0, lumaKeyThreshold)))}`
+  const threshold = Number.isFinite(lumaKey.threshold) ? Math.min(1, Math.max(0, lumaKey.threshold ?? 0.1)) : 0.1
+  const coherence = Number.isFinite(lumaKey.coherence) ? Math.min(1, Math.max(0, lumaKey.coherence ?? 0)) : 0
+  const mode = Object.values(LumaKeyMode).includes(lumaKey.mode) ? lumaKey.mode : LumaKeyMode.None
+  const lumaKeyConfig = `{ mode: LumaKeyMode.${mode === LumaKeyMode.Dark ? 'Dark' : mode === LumaKeyMode.Light ? 'Light' : 'None'}, threshold: ${String(threshold)}, coherence: ${String(coherence)} }`
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: ${lumaKeyConfig}`
 
-  return `import { LumaKey, MediaType, NyxFission } from 'nyx-fission'
+  return `import { LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${config} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')

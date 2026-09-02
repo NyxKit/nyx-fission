@@ -53,7 +53,25 @@ const particles = new NyxFission({
 
 ### Luma keying
 
-`lumaKey` defaults to `LumaKey.None`. Set it to `LumaKey.Dark` to discard particles at or below `lumaKeyThreshold`, or `LumaKey.Light` to discard particles at or above `1 - lumaKeyThreshold`. The normalized `lumaKeyThreshold` defaults to `0.1` and accepts values from `0` through `1`. Luma-key settings are fixed when an instance is created; destroy and recreate the instance to change them.
+`lumaKey` is an optional nested configuration. Its mode defaults to `LumaKeyMode.None`; use `LumaKeyMode.Dark` to discard particles at or below `threshold`, or `LumaKeyMode.Light` to discard particles at or above `1 - threshold`:
+
+```ts
+new NyxFission({
+  type: MediaType.Video,
+  source: './field.webm',
+  lumaKey: {
+    mode: LumaKeyMode.Dark,
+    threshold: 0.1,
+    coherence: 0.1,
+  },
+})
+```
+
+`threshold` defaults to `0.1` and `coherence` defaults to `0`. Both normalized values accept finite numbers from `0` through `1`, inclusive. Luma-key comparisons are inclusive: dark filtering discards luminance `<= threshold`, and light filtering discards luminance `>= 1 - threshold`.
+
+When `coherence` is greater than zero, a qualifying particle must have local support from the immediately adjacent samples in the sampled grid's fixed 3x3 neighborhood. Support is the number of qualifying neighbors divided by the number of available neighbors; image borders do not receive an artificial edge penalty. A particle is discarded when support is strictly less than `coherence`, so an exact match remains visible. `coherence: 0` disables neighborhood cleanup and preserves the existing behavior.
+
+Luma-key settings are immutable after construction. Destroy and recreate the instance to change them. The old flat `lumaKey` enum value and top-level `lumaKeyThreshold` option are not supported.
 
 ## Events and lifecycle
 

@@ -51,10 +51,11 @@ describe('compiled demo entry', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
     const quickstart = readFileSync(resolve(demoDirectory, 'quickstart.ts'), 'utf8')
 
-    expect(app).toContain('lumaKey: lumaKey.value')
-    expect(app).toContain('lumaKeyThreshold: lumaKeyThreshold.value')
-    expect(quickstart).toContain('lumaKeyMember')
-    expect(quickstart).toContain('lumaKeyThreshold = 0.1')
+    expect(app).toContain('lumaKey: { mode: lumaKey.value, threshold: lumaKeyThreshold.value, coherence: lumaKeyCoherence.value }')
+    expect(app).not.toContain('lumaKeyThreshold: lumaKeyThreshold.value')
+    expect(app).toContain('lumaKeyCoherence')
+    expect(quickstart).toContain('LumaKeyMode')
+    expect(quickstart).toContain('coherence: ${String(coherence)}')
   })
 
   it('exposes luma-key controls in the playground appearance rail', () => {
@@ -62,6 +63,7 @@ describe('compiled demo entry', () => {
 
     expect(app).toContain('luma-key-mode')
     expect(app).toContain('luma-key-threshold')
+    expect(app).toContain('luma-key-coherence')
     expect(app).not.toContain('class="status-block"')
   })
 

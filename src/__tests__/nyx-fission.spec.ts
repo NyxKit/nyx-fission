@@ -126,12 +126,13 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
   })
 
-  it('passes default luma-key settings to the runtime constructor', async () => {
+  it('passes default luma-key settings to the field and runtime constructors', async () => {
     const particles = new NyxFission({ source: './portrait.jpg' })
     particles.mount(canvas())
     await particles.ready
 
     expect(mocks.runtimeInstances[0].lumaKey).toEqual({ mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 })
+    expect(mocks.createParticleField).toHaveBeenCalledWith(expect.anything(), expect.anything(), { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 })
     particles.destroy()
   })
 
@@ -141,6 +142,22 @@ describe('NyxFission orchestration', () => {
     await particles.ready
 
     expect(mocks.runtimeInstances[0].lumaKey).toEqual({ mode, threshold: 0.5, coherence: 0.4 })
+    expect(mocks.createParticleField).toHaveBeenCalledWith(expect.anything(), expect.anything(), { mode, threshold: 0.5, coherence: 0.4 })
+    particles.destroy()
+  })
+
+  it('passes the resolved luma-key filter when a dynamic frame changes dimensions', async () => {
+    mocks.loadMediaSource.mockResolvedValueOnce({ kind: 'video', width: 2, height: 2, getFrameSource: vi.fn(), dispose: vi.fn() })
+    mocks.sample.mockReset().mockReturnValueOnce(imageData(2, 2)).mockReturnValueOnce(imageData(3, 2))
+    const filter = { mode: LumaKeyMode.Dark, threshold: 0.25, coherence: 0.75 }
+    const particles = new NyxFission({ source: './portrait.jpg', lumaKey: filter })
+    particles.mount(canvas())
+    await particles.ready
+
+    const runtime = mocks.runtimeInstances[0]
+    ;(runtime.start.mock.calls[0][0] as (_time: number) => void)(1000)
+
+    expect(mocks.createParticleField).toHaveBeenNthCalledWith(2, expect.anything(), expect.anything(), filter)
     particles.destroy()
   })
 
