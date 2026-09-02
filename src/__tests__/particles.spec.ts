@@ -163,6 +163,13 @@ describe('particle fields', () => {
     expect(field.coherence[4]).toBeCloseTo(0)
   })
 
+  it('gives a qualifying sample in a 1x1 field zero support', () => {
+    const field = createParticleField(imageData(1, 1, [255, 255, 255, 255]), theme, darkFilter)
+
+    expect(field.coherence[0]).toBe(0)
+    expect(field.coherence[0]).not.toBeNaN()
+  })
+
   it('gives every sample full support in a qualifying 3x3 region', () => {
     const field = createParticleField(sampledGridImageData([
       [255, 255, 255],

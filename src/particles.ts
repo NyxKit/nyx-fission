@@ -106,7 +106,7 @@ export class ParticleField {
           if (qualifies(this.luminance[neighborIndex], this.filter)) qualifyingNeighbors++
         }
       }
-      this.coherence[index] = qualifyingNeighbors / availableNeighbors
+      this.coherence[index] = availableNeighbors === 0 ? 0 : qualifyingNeighbors / availableNeighbors
     })
   }
 }
