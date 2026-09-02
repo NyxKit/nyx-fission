@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NyxButton, NyxInput, NyxSelect } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
 import { LumaKeyMode, MediaType, NyxEvent, NyxFission, type NyxErrorEvent, ThemeName } from '../src/index'
+import { createHeroPreviewLifecycle } from './hero-lifecycle'
 import { buildQuickstart, commitDemoDepth, normalizeDemoDepth } from './quickstart'
 
 enum SourceChoice {
@@ -32,6 +33,7 @@ const INPUT_APPLY_DELAY_MS = 250
 let depthApplyTimer: number | undefined
 let lumaKeyThresholdApplyTimer: number | undefined
 let lumaKeyCoherenceApplyTimer: number | undefined
+let disposeHero: (() => void) | null = null
 const canvas = ref<HTMLCanvasElement | null>(null)
 const instance = ref<NyxFission | null>(null)
 const heroCanvas = ref<HTMLCanvasElement | null>(null)
@@ -168,21 +170,13 @@ const createHeroInstance = () => {
   const target = heroCanvas.value
   if (!target) return
 
-  let nextInstance: NyxFission | null = null
-  try {
-    nextInstance = new NyxFission({ type: MediaType.Video, source: videoUrl })
-    heroInstance.value = nextInstance
-    nextInstance.ready.catch(() => {
-      if (heroInstance.value === nextInstance) {
-        nextInstance.destroy()
-        heroInstance.value = null
-      }
-    })
-    nextInstance.mount(target)
-  } catch {
-    nextInstance?.destroy()
-    heroInstance.value = null
-  }
+  const lifecycle = createHeroPreviewLifecycle({
+    target,
+    create: () => new NyxFission({ type: MediaType.Video, source: videoUrl }),
+    onInstanceChange: (nextInstance) => { heroInstance.value = nextInstance as NyxFission | null },
+  })
+  disposeHero = lifecycle.dispose
+  lifecycle.mount()
 }
 
 const createInstance = async () => {
@@ -282,10 +276,9 @@ onBeforeUnmount(() => {
   if (depthApplyTimer !== undefined) window.clearTimeout(depthApplyTimer)
   if (lumaKeyThresholdApplyTimer !== undefined) window.clearTimeout(lumaKeyThresholdApplyTimer)
   if (lumaKeyCoherenceApplyTimer !== undefined) window.clearTimeout(lumaKeyCoherenceApplyTimer)
-  if (heroInstance.value) {
-    heroInstance.value.destroy()
-    heroInstance.value = null
-  }
+  disposeHero?.()
+  disposeHero = null
+  heroInstance.value = null
   destroyInstance()
 })
 </script>

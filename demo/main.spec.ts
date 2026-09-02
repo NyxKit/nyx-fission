@@ -33,21 +33,13 @@ describe('compiled demo entry', () => {
 
   it('wires hero creation, mounting, rejection cleanup, and unmount cleanup', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
-    const heroStart = app.indexOf('const createHeroInstance = () => {')
-    const createInstanceStart = app.indexOf('const createInstance = async () => {', heroStart)
-    const heroLifecycle = app.slice(heroStart, createInstanceStart)
-    const unmountStart = app.indexOf('onBeforeUnmount(() => {')
-    const unmountBlock = app.slice(unmountStart, app.indexOf('\n})', unmountStart))
 
-    expect(heroStart).toBeGreaterThanOrEqual(0)
-    expect(heroLifecycle).toContain('const createHeroInstance = () => {')
-    expect(heroLifecycle).toContain('nextInstance.mount(target)')
-    expect(heroLifecycle).toContain('nextInstance.ready.catch(() => {')
-    expect(heroLifecycle).toContain('if (heroInstance.value === nextInstance)')
-    expect(heroLifecycle).toContain('nextInstance.destroy()')
-    expect(heroLifecycle).toContain('heroInstance.value = null')
-    expect(unmountBlock).toContain('heroInstance.value.destroy()')
-    expect(unmountBlock).toContain('heroInstance.value = null')
+    expect(app).toContain("import { createHeroPreviewLifecycle } from './hero-lifecycle'")
+    expect(app).toContain('const lifecycle = createHeroPreviewLifecycle({')
+    expect(app).toContain('disposeHero = lifecycle.dispose')
+    expect(app).toContain('lifecycle.mount()')
+    expect(app).toContain('disposeHero?.()')
+    expect(app).toContain('heroInstance.value = null')
   })
 
   it('keeps Vue ambient types out of the library declaration project', () => {
