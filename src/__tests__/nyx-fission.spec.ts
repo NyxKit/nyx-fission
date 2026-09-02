@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { LumaKey, MediaType, NyxErrorStage, NyxEvent, ThemeName } from '../types'
+import { LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type ResolvedLumaKeyConfig } from '../types'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: LumaKey; lumaKeyThreshold: number; errorCallback?: (_error: unknown) => void }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: ResolvedLumaKeyConfig; errorCallback?: (_error: unknown) => void }>,
 }))
 
 const FLOAT32_SAFE_DEPTH = 1_000_000
@@ -38,13 +38,11 @@ vi.mock('../runtime', () => ({
 
     depth: number
 
-    lumaKey: LumaKey
-    lumaKeyThreshold: number
+    lumaKey: ResolvedLumaKeyConfig
 
-    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: LumaKey = LumaKey.None, lumaKeyThreshold = 0.1, errorCallback?: (_error: unknown) => void) {
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: (_error: unknown) => void) {
       this.depth = typeof depth === 'number' ? depth : 0
       this.lumaKey = lumaKey
-      this.lumaKeyThreshold = lumaKeyThreshold
       this.errorCallback = errorCallback
       mocks.runtimeInstances.push(this)
     }
@@ -133,34 +131,48 @@ describe('NyxFission orchestration', () => {
     particles.mount(canvas())
     await particles.ready
 
-    expect(mocks.runtimeInstances[0].lumaKey).toBe(LumaKey.None)
-    expect(mocks.runtimeInstances[0].lumaKeyThreshold).toBe(0.1)
+    expect(mocks.runtimeInstances[0].lumaKey).toEqual({ mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 })
     particles.destroy()
   })
 
-  it.each([LumaKey.None, LumaKey.Dark, LumaKey.Light])('passes luma-key mode %s and threshold to the runtime constructor', async (lumaKey) => {
-    const particles = new NyxFission({ source: './portrait.jpg', lumaKey, lumaKeyThreshold: 0.5 })
+  it.each([LumaKeyMode.None, LumaKeyMode.Dark, LumaKeyMode.Light])('passes luma-key mode %s and threshold to the runtime constructor', async (mode) => {
+    const particles = new NyxFission({ source: './portrait.jpg', lumaKey: { mode, threshold: 0.5, coherence: 0.4 } })
     particles.mount(canvas())
     await particles.ready
 
-    expect(mocks.runtimeInstances[0].lumaKey).toBe(lumaKey)
-    expect(mocks.runtimeInstances[0].lumaKeyThreshold).toBe(0.5)
+    expect(mocks.runtimeInstances[0].lumaKey).toEqual({ mode, threshold: 0.5, coherence: 0.4 })
     particles.destroy()
   })
 
-  it.each([0, 0.1, 1])('accepts luma-key threshold %s', (lumaKeyThreshold) => {
-    expect(() => new NyxFission({ source: './portrait.jpg', lumaKeyThreshold })).not.toThrow()
+  it.each([0, 0.1, 1])('accepts luma-key threshold %s', (threshold) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, threshold } })).not.toThrow()
   })
 
-  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01])('rejects invalid luma-key threshold %s', (lumaKeyThreshold) => {
-    expect(() => new NyxFission({ source: './portrait.jpg', lumaKeyThreshold })).toThrowError(
-      expect.objectContaining({ code: 'INVALID_CONFIG' }),
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01])('rejects invalid luma-key threshold %s', (threshold) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, threshold } })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
   })
 
-  it('rejects an unsupported luma-key mode before starting work', () => {
-    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: 'mid' as LumaKey })).toThrowError(
-      expect.objectContaining({ code: 'INVALID_CONFIG' }),
+  it.each([0, 0.1, 1])('accepts luma-key coherence %s', (coherence) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, coherence } })).not.toThrow()
+  })
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1.01])('rejects invalid luma-key coherence %s', (coherence) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, coherence } })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+  })
+
+  it('rejects an unsupported nested luma-key mode before starting work', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: 'mid' as LumaKeyMode } })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+  })
+
+  it('rejects the removed flat luma-key configuration', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: LumaKeyMode.Dark as unknown as { mode: LumaKeyMode } })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
     )
   })
 

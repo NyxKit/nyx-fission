@@ -13,11 +13,19 @@ export enum ThemeName {
   Nyx = 'nyx',
 }
 
-export enum LumaKey {
+export enum LumaKeyMode {
   None = 'none',
   Dark = 'dark',
   Light = 'light',
 }
+
+export interface LumaKeyConfig {
+  mode: LumaKeyMode
+  threshold?: number
+  coherence?: number
+}
+
+export type ResolvedLumaKeyConfig = Required<LumaKeyConfig>
 
 export interface NyxFissionConfig {
   source?: string
@@ -25,8 +33,7 @@ export interface NyxFissionConfig {
   theme?: ThemeName
   querySelector?: string
   depth?: number
-  lumaKey?: LumaKey
-  lumaKeyThreshold?: number
+  lumaKey?: LumaKeyConfig
 }
 
 export enum NyxEvent {

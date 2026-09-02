@@ -4,8 +4,9 @@ import {
   NyxErrorStage,
   NyxEvent,
   NyxFission,
-  LumaKey,
+  LumaKeyMode,
   ThemeName,
+  type LumaKeyConfig,
   type NyxFissionConfig,
 } from '../index'
 
@@ -15,7 +16,7 @@ describe('public string enums', () => {
     expect(ThemeName).toEqual({ Grayscale: 'grayscale', Discodip: 'discodip', Pastel: 'pastel', Nyx: 'nyx' })
     expect(NyxEvent).toEqual({ Loading: 'loading', Ready: 'ready', Error: 'error', Destroy: 'destroy' })
     expect(NyxErrorStage).toEqual({ Target: 'target', Source: 'source', Sampling: 'sampling', Rendering: 'rendering', Lifecycle: 'lifecycle' })
-    expect(LumaKey).toEqual({ None: 'none', Dark: 'dark', Light: 'light' })
+    expect(LumaKeyMode).toEqual({ None: 'none', Dark: 'dark', Light: 'light' })
   })
 
   it('continues validating invalid runtime configuration', () => {
@@ -25,10 +26,12 @@ describe('public string enums', () => {
   })
 
   it('exposes signed numeric depth in the public configuration', () => {
-    const config: NyxFissionConfig = { source: 'image.jpg', depth: -0.5, lumaKey: LumaKey.Dark, lumaKeyThreshold: 0.1 }
+    const lumaKey: LumaKeyConfig = { mode: LumaKeyMode.Dark, threshold: 0.1, coherence: 0.25 }
+    const config: NyxFissionConfig = { source: 'image.jpg', depth: -0.5, lumaKey }
 
     expect(config.depth).toBe(-0.5)
-    expect(config.lumaKey).toBe(LumaKey.Dark)
-    expect(config.lumaKeyThreshold).toBe(0.1)
+    expect(config.lumaKey?.mode).toBe(LumaKeyMode.Dark)
+    expect(config.lumaKey?.threshold).toBe(0.1)
+    expect(config.lumaKey?.coherence).toBe(0.25)
   })
 })
