@@ -176,6 +176,12 @@ describe('NyxFission orchestration', () => {
     )
   })
 
+  it('rejects the removed top-level luma-key threshold from runtime configuration', () => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKeyThreshold: 0.25 } as any)).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+  })
+
   it('rejects an invalid theme before starting work', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', theme: 'electric' as ThemeName })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),

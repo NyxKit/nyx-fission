@@ -30,6 +30,9 @@ function validateConfig(config: NyxFissionConfig): ResolvedLumaKeyConfig {
     throw new NyxError(`Unsupported particle theme: ${String(config.theme)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
   if (config.depth !== undefined) validateParticleDepth(config.depth, NyxErrorStage.Sampling)
+  if (Object.prototype.hasOwnProperty.call(config, 'lumaKeyThreshold')) {
+    throw new NyxError('The top-level luma-key threshold was removed; use lumaKey.threshold', 'INVALID_CONFIG', NyxErrorStage.Sampling)
+  }
   const lumaKey = config.lumaKey
   const mode: LumaKeyMode | undefined = lumaKey === undefined ? LumaKeyMode.None : typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.mode : undefined
   if (mode === undefined || !lumaKeyModes.includes(mode)) {
