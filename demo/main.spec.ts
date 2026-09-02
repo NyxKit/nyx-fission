@@ -15,13 +15,14 @@ describe('compiled demo entry', () => {
     expect(app).toContain('<canvas id="particles-canvas"')
   })
 
-  it('keeps the hero preview independent and default-only', () => {
+  it('keeps the hero preview independent with dark luma filtering', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
 
     expect(app).toContain('hero-canvas')
     expect(app).toContain('heroCanvas')
     expect(app).toContain('heroInstance')
-    expect(app).toContain('new NyxFission({ type: MediaType.Video, source: videoUrl })')
+    expect(app).toContain('lumaKey: { mode: LumaKeyMode.Dark }')
+    expect(app).not.toContain('LIVE / NYX-ORBIT.MP4')
     expect(app).not.toContain('browser particle engine')
     expect(app).not.toContain('GPU</span>')
     expect(app).not.toContain('MEDIA</span>')
@@ -103,12 +104,23 @@ describe('compiled demo entry', () => {
     expect(styles).toContain('height: 1px')
   })
 
-  it('stacks the hero preview responsively without obsolete signal styles', () => {
+  it('floats the transparent hero preview and resets it on mobile', () => {
     const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
+    const previewStart = styles.indexOf('.hero-preview {')
+    const previewEnd = styles.indexOf('section {', previewStart)
+    const previewStyles = styles.slice(previewStart, previewEnd)
     const mobileStyles = styles.slice(styles.indexOf('@media (max-width: 800px)'))
 
     expect(mobileStyles).toContain('.hero { min-height: auto; grid-template-columns: 1fr; }')
-    expect(mobileStyles).toContain('.hero-preview { margin-top: 20px; padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--demo-line); }')
+    expect(styles).toContain('.hero { min-height: 610px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr); align-items: center; position: relative; border-bottom: 0; }')
+    expect(previewStyles).toContain('margin-right: -')
+    expect(previewStyles).toContain('transform: translateY(')
+    expect(previewStyles).not.toContain('border-left: 1px solid var(--demo-line)')
+    expect(previewStyles).not.toContain('background: var(--nyx-c-bg-mute)')
+    expect(previewStyles).not.toContain('border: 1px solid var(--demo-line)')
+    expect(styles).not.toContain('.hero-preview-label')
+    expect(mobileStyles).toContain('.hero-preview { margin: 20px 0 0; padding: 20px 0 0; transform: none; border-top: 0; }')
+    expect(mobileStyles).toContain('.hero-preview canvas { width: 100%; }')
     expect(styles).not.toContain('.hero-signal')
   })
 
