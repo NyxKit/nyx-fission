@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { NyxError } from '../errors'
 import { createParticleField, updateParticleField } from '../particles'
 import type { Color } from '../themes'
+import { LumaKeyMode, type ResolvedLumaKeyConfig } from '../types'
 
 const theme: readonly Color[] = [
   [0, 0, 0],
@@ -28,6 +29,22 @@ function singleParticleImageData(red: number): ImageData {
   pixels[3] = 255
   return { width: 12, height: 1, data: pixels } as unknown as ImageData
 }
+
+function sampledGridImageData(values: number[][]): ImageData {
+  const width = 9
+  const height = 9
+  const pixels = new Uint8ClampedArray(width * height * 4)
+  values.forEach((row, sampleY) => row.forEach((red, sampleX) => {
+    const offset = (sampleY * 3 * width + sampleX * 3) * 4
+    pixels[offset] = red
+    pixels[offset + 1] = red
+    pixels[offset + 2] = red
+    pixels[offset + 3] = 255
+  }))
+  return imageData(width, height, Array.from(pixels))
+}
+
+const darkFilter: ResolvedLumaKeyConfig = { mode: LumaKeyMode.Dark, threshold: 0.5, coherence: 0.5 }
 
 describe('particle fields', () => {
   it('writes low initial luminance during construction', () => {
@@ -134,6 +151,99 @@ describe('particle fields', () => {
     updateParticleField(field, imageData(3, 1, [0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]))
 
     expect(Array.from(field.colors)).toEqual([1, 0, 0])
+  })
+
+  it('gives an isolated qualifying center sample zero support', () => {
+    const field = createParticleField(sampledGridImageData([
+      [0, 0, 0],
+      [0, 255, 0],
+      [0, 0, 0],
+    ]), theme, darkFilter)
+
+    expect(field.coherence[4]).toBeCloseTo(0)
+  })
+
+  it('gives every sample full support in a qualifying 3x3 region', () => {
+    const field = createParticleField(sampledGridImageData([
+      [255, 255, 255],
+      [255, 255, 255],
+      [255, 255, 255],
+    ]), theme, darkFilter)
+
+    expect(Array.from(field.coherence)).toEqual(new Array(9).fill(1))
+  })
+
+  it('uses only available neighbors for a border support denominator', () => {
+    const field = createParticleField(sampledGridImageData([
+      [255, 255, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]), theme, darkFilter)
+
+    expect(field.coherence[0]).toBeCloseTo(1 / 3)
+  })
+
+  it('qualifies dark samples only above the threshold', () => {
+    const field = createParticleField(sampledGridImageData([
+      [0, 0, 0],
+      [0, 128, 255],
+      [0, 0, 0],
+    ]), theme, darkFilter)
+
+    expect(field.coherence[4]).toBeCloseTo(1 / 8)
+  })
+
+  it('qualifies light samples only below one minus the threshold', () => {
+    const field = createParticleField(sampledGridImageData([
+      [255, 255, 255],
+      [255, 127, 0],
+      [255, 255, 255],
+    ]), theme, { mode: LumaKeyMode.Light, threshold: 0.5, coherence: 0.5 })
+
+    expect(field.coherence[4]).toBeCloseTo(1 / 8)
+  })
+
+  it('scores a thin qualifying line from its adjacent line samples', () => {
+    const field = createParticleField(sampledGridImageData([
+      [0, 0, 0],
+      [255, 255, 255],
+      [0, 0, 0],
+    ]), theme, darkFilter)
+
+    expect(field.coherence[3]).toBeCloseTo(1 / 5)
+    expect(field.coherence[4]).toBeCloseTo(1 / 4)
+    expect(field.coherence[5]).toBeCloseTo(1 / 5)
+  })
+
+  it('updates coherence in place across dynamic frames', () => {
+    const field = createParticleField(sampledGridImageData([
+      [255, 255, 255],
+      [255, 255, 255],
+      [255, 255, 255],
+    ]), theme, darkFilter)
+    const coherence = field.coherence
+
+    updateParticleField(field, sampledGridImageData([
+      [0, 0, 0],
+      [0, 255, 0],
+      [0, 0, 0],
+    ]))
+
+    expect(field.coherence).toBe(coherence)
+    expect(field.coherence[4]).toBe(0)
+  })
+
+  it.each([
+    { mode: LumaKeyMode.None, threshold: 0.5, coherence: 1 },
+    { mode: LumaKeyMode.Dark, threshold: 0.5, coherence: 0 },
+  ])('uses disabled support values for $mode with coherence $coherence', (filter) => {
+    const field = createParticleField(sampledGridImageData([
+      [255, 255, 255],
+      [255, 255, 255],
+      [255, 255, 255],
+    ]), theme, filter)
+
+    expect(Array.from(field.coherence)).toEqual(new Array(9).fill(0))
   })
 
   it('rejects an empty or invalid palette at creation', () => {
