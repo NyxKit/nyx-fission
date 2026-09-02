@@ -234,7 +234,7 @@ export class NyxFission {
       if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
         this.frameWidth = frame.width
         this.frameHeight = frame.height
-          this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx), this.lumaKey)
+        this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx), this.lumaKey)
         runtime.setField(this.field)
       } else {
         updateParticleField(this.field, frame)

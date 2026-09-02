@@ -120,15 +120,29 @@ const commitLumaKeyThreshold = () => {
   lumaKeyThresholdInput.value = String(lumaKeyThreshold.value)
 }
 
-const updateLumaKeyCoherenceInput = (value: string) => { lumaKeyCoherenceInput.value = value; scheduleLumaKeyCoherenceCommit() }
+const updateLumaKeyCoherenceInput = (value: string) => {
+  lumaKeyCoherenceInput.value = value
+  scheduleLumaKeyCoherenceCommit()
+}
+
 const scheduleLumaKeyCoherenceCommit = () => {
   if (lumaKeyCoherenceApplyTimer !== undefined) window.clearTimeout(lumaKeyCoherenceApplyTimer)
-  lumaKeyCoherenceApplyTimer = window.setTimeout(() => { lumaKeyCoherenceApplyTimer = undefined; commitLumaKeyCoherence() }, INPUT_APPLY_DELAY_MS)
+  lumaKeyCoherenceApplyTimer = window.setTimeout(() => {
+    lumaKeyCoherenceApplyTimer = undefined
+    commitLumaKeyCoherence()
+  }, INPUT_APPLY_DELAY_MS)
 }
+
 const commitLumaKeyCoherence = () => {
-  if (lumaKeyCoherenceApplyTimer !== undefined) { window.clearTimeout(lumaKeyCoherenceApplyTimer); lumaKeyCoherenceApplyTimer = undefined }
+  if (lumaKeyCoherenceApplyTimer !== undefined) {
+    window.clearTimeout(lumaKeyCoherenceApplyTimer)
+    lumaKeyCoherenceApplyTimer = undefined
+  }
   const nextCoherence = Number(lumaKeyCoherenceInput.value)
-  if (!Number.isFinite(nextCoherence)) { lumaKeyCoherenceInput.value = String(lumaKeyCoherence.value); return }
+  if (!Number.isFinite(nextCoherence)) {
+    lumaKeyCoherenceInput.value = String(lumaKeyCoherence.value)
+    return
+  }
   lumaKeyCoherence.value = Math.min(1, Math.max(0, nextCoherence))
   lumaKeyCoherenceInput.value = String(lumaKeyCoherence.value)
 }
