@@ -17,11 +17,16 @@ describe('compiled demo entry', () => {
 
   it('keeps the hero preview independent with dark luma filtering', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
+    const heroFactoryStart = app.indexOf('create: () =>')
+    const heroFactoryEnd = app.indexOf('onInstanceChange', heroFactoryStart)
+    const heroFactory = app.slice(heroFactoryStart, heroFactoryEnd)
 
     expect(app).toContain('hero-canvas')
     expect(app).toContain('heroCanvas')
     expect(app).toContain('heroInstance')
     expect(app).toContain('lumaKey: { mode: LumaKeyMode.Dark }')
+    expect(heroFactory).not.toContain('threshold:')
+    expect(heroFactory).not.toContain('coherence:')
     expect(app).not.toContain('LIVE / NYX-ORBIT.MP4')
     expect(app).not.toContain('browser particle engine')
     expect(app).not.toContain('GPU</span>')
@@ -110,6 +115,9 @@ describe('compiled demo entry', () => {
     const previewEnd = styles.indexOf('section {', previewStart)
     const previewStyles = styles.slice(previewStart, previewEnd)
     const mobileStyles = styles.slice(styles.indexOf('@media (max-width: 800px)'))
+    const mobilePreviewStart = mobileStyles.indexOf('.hero-preview {')
+    const mobilePreviewEnd = mobileStyles.indexOf('}', mobilePreviewStart)
+    const mobilePreviewStyles = mobileStyles.slice(mobilePreviewStart, mobilePreviewEnd)
 
     expect(mobileStyles).toContain('.hero { min-height: auto; grid-template-columns: 1fr; }')
     expect(styles).toContain('.hero { min-height: 610px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr); align-items: center; position: relative; border-bottom: 0; }')
@@ -120,6 +128,8 @@ describe('compiled demo entry', () => {
     expect(previewStyles).not.toContain('border: 1px solid var(--demo-line)')
     expect(styles).not.toContain('.hero-preview-label')
     expect(mobileStyles).toContain('.hero-preview { margin: 20px 0 0; padding: 20px 0 0; transform: none; border-top: 0; }')
+    expect(mobilePreviewStyles).not.toContain('background:')
+    expect(mobilePreviewStyles).not.toContain('border:')
     expect(mobileStyles).toContain('.hero-preview canvas { width: 100%; }')
     expect(styles).not.toContain('.hero-signal')
   })
