@@ -13,7 +13,7 @@ pnpm add nyx-fission three
 ## Quick start
 
 ```ts
-import { MediaType, NyxFission, ThemeName } from 'nyx-fission'
+import { LumaKeyMode, MediaType, NyxFission, ThemeName } from 'nyx-fission'
 
 const particles = new NyxFission({
   source: './portrait.jpg',
