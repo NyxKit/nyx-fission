@@ -79,7 +79,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 20px
 @media (max-width: 800px) {
   .site-shell { padding: 0 20px; }
   nav a:not(:first-child) { display: none; }
-  .hero { min-height: 610px; }
+  .hero { min-height: max(610px, calc(100dvh - 76px)); }
   .hero-copy { padding: 72px 20px 48px; }
   .hero-preview canvas { width: 100%; }
   section { padding: 72px 0; }

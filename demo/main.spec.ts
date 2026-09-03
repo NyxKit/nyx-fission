@@ -155,7 +155,7 @@ describe('compiled demo entry', () => {
     expect(styles).toContain('.hero-preview canvas { display: block; width: 100%; height: 100%;')
     expect(styles).toContain('background: var(--nyx-c-bg-mute);')
     expect(styles).toContain('.site-shell > section:not(.hero), footer { position: relative; z-index: 1; background: var(--nyx-c-bg); }')
-    expect(mobileStyles).toContain('.hero { min-height: 610px; }')
+    expect(mobileStyles).toContain('.hero { min-height: max(610px, calc(100dvh - 76px)); }')
     expect(mobileStyles).toContain('.hero-copy { padding: 72px 20px 48px; }')
     expect(reducedMotionStyles).toContain('.hero-preview canvas { display: none; }')
   })
