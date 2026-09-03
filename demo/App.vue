@@ -173,7 +173,7 @@ const createHeroInstance = () => {
 
   const lifecycle = createHeroPreviewLifecycle({
     target,
-    create: () => new NyxFission({ type: MediaType.Video, source: heroVideoUrl, depth: 0.7, lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.15, coherence: 0.2 } }),
+    create: () => new NyxFission({ type: MediaType.Video, source: heroVideoUrl, depth: 1, lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.2, coherence: 0.3 } }),
     onInstanceChange: (nextInstance) => { heroInstance.value = nextInstance as NyxFission | null },
   })
   disposeHero = lifecycle.dispose
