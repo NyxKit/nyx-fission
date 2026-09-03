@@ -31,6 +31,7 @@ h1 em { color: var(--demo-accent); font-style: normal; }
 .hero-preview { position: fixed; left: 0; top: 0; width: 100dvw; height: 100dvh; z-index: 0; margin: 0; padding: 0; background: var(--nyx-c-bg-mute); pointer-events: none; }
 .hero-preview::after { content: ''; position: absolute; inset: 0; z-index: 2; background: linear-gradient(90deg, color-mix(in srgb, var(--nyx-c-bg) 92%, transparent) 0%, color-mix(in srgb, var(--nyx-c-bg) 64%, transparent) 56%, color-mix(in srgb, var(--nyx-c-bg) 34%, transparent) 100%); pointer-events: none; }
 .hero-preview canvas { display: block; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; }
+.site-shell > section:not(.hero), footer { position: relative; z-index: 1; background: var(--nyx-c-bg); }
 section { padding: 104px 0; }
 .section-heading { display: flex; justify-content: space-between; gap: 40px; align-items: end; margin-bottom: 38px; }
 h2 { margin-bottom: 0; font-size: clamp(30px, 4vw, 54px); line-height: 1; letter-spacing: -.04em; }
