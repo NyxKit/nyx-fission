@@ -115,7 +115,9 @@ describe('compiled demo entry', () => {
   it('fills the hero with a layered particle background', () => {
     const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
     const mobileStyles = styles.slice(styles.indexOf('@media (max-width: 800px)'))
-    const reducedMotionStyles = styles.slice(styles.indexOf('@media (prefers-reduced-motion: reduce)'))
+    const reducedMotionStart = styles.indexOf('@media (prefers-reduced-motion: reduce)')
+    const reducedMotionEnd = styles.indexOf('\n}', reducedMotionStart)
+    const reducedMotionStyles = styles.slice(reducedMotionStart, reducedMotionEnd)
 
     expect(styles).toContain('.hero { min-height: 610px; display: block; position: relative; overflow: hidden; }')
     expect(styles).toContain('.hero-copy { position: relative; z-index: 2;')
