@@ -18,6 +18,7 @@ type Status = 'Waiting for a source' | 'Loading source' | 'Live' | 'Needs attent
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
 const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
+const heroVideoUrl = new URL('./fixtures/hero0.mp4', document.baseURI).href
 const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)
@@ -172,7 +173,7 @@ const createHeroInstance = () => {
 
   const lifecycle = createHeroPreviewLifecycle({
     target,
-    create: () => new NyxFission({ type: MediaType.Video, source: videoUrl, depth: 0.7, lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.15, coherence: 0.2 } }),
+    create: () => new NyxFission({ type: MediaType.Video, source: heroVideoUrl, depth: 0.7, lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.15, coherence: 0.2 } }),
     onInstanceChange: (nextInstance) => { heroInstance.value = nextInstance as NyxFission | null },
   })
   disposeHero = lifecycle.dispose
