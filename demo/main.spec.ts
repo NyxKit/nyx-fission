@@ -170,12 +170,17 @@ describe('compiled demo entry', () => {
   it('applies numeric input changes automatically and exposes update progress', () => {
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
     const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
+    const playgroundUpdatingRuleStart = styles.indexOf('.playground-updating {')
+    const playgroundUpdatingRuleEnd = styles.indexOf('}', playgroundUpdatingRuleStart)
+    const playgroundUpdatingRule = styles.slice(playgroundUpdatingRuleStart, playgroundUpdatingRuleEnd)
 
     expect(app).toContain('scheduleDepthCommit')
     expect(app).toContain('scheduleLumaKeyThresholdCommit')
     expect(app).toContain('isUpdating')
     expect(app).toContain('aria-live="polite"')
     expect(styles).toContain('.playground-updating')
+    expect(playgroundUpdatingRule).toContain('position: relative;')
+    expect(playgroundUpdatingRule).toContain('z-index: 1;')
     expect(styles).toContain('animation:')
   })
 
