@@ -25,8 +25,8 @@ describe('compiled demo entry', () => {
     expect(app).toContain('heroCanvas')
     expect(app).toContain('heroInstance')
     expect(app).toContain("const heroVideoUrl = new URL('./fixtures/hero0.mp4', document.baseURI).href")
-    expect(app).toContain('source: heroVideoUrl')
     expect(app).toContain('lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.15, coherence: 0.2 }')
+    expect(heroFactory).toContain('source: heroVideoUrl')
     expect(heroFactory).toContain('threshold: 0.15')
     expect(heroFactory).toContain('coherence: 0.2')
     expect(heroFactory).toContain('depth: 0.7')
@@ -115,6 +115,7 @@ describe('compiled demo entry', () => {
   it('fills the hero with a layered particle background', () => {
     const styles = readFileSync(resolve(demoDirectory, 'style.css'), 'utf8')
     const mobileStyles = styles.slice(styles.indexOf('@media (max-width: 800px)'))
+    const reducedMotionStyles = styles.slice(styles.indexOf('@media (prefers-reduced-motion: reduce)'))
 
     expect(styles).toContain('.hero { min-height: 610px; display: block; position: relative; overflow: hidden; }')
     expect(styles).toContain('.hero-copy { position: relative; z-index: 2;')
@@ -124,8 +125,7 @@ describe('compiled demo entry', () => {
     expect(styles).toContain('background: var(--nyx-c-bg-mute);')
     expect(mobileStyles).toContain('.hero { min-height: 610px; }')
     expect(mobileStyles).toContain('.hero-copy { padding: 72px 20px 48px; }')
-    expect(styles).toContain('@media (prefers-reduced-motion: reduce)')
-    expect(styles).toContain('.hero-preview { display: none; }')
+    expect(reducedMotionStyles).toContain('.hero-preview { display: none; }')
   })
 
   it('uses the MP4 playground video fixture', () => {
