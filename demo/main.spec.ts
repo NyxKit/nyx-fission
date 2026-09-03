@@ -138,7 +138,7 @@ describe('compiled demo entry', () => {
     expect(heroRule).not.toContain('position: relative;')
     expect(heroRule).not.toContain('overflow: hidden;')
     expect(styles).toContain('.hero-copy { position: relative; z-index: 2;')
-    expect(heroPreviewRule).toContain('--hero-preview-scale: 1.2;')
+    expect(heroPreviewRule).toContain('--hero-preview-scale: 1.3;')
     expect(heroPreviewRule).toContain('position: absolute;')
     expect(heroPreviewRule).toContain('left: 0;')
     expect(heroPreviewRule).toContain('top: 0;')
