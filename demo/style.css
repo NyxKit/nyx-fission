@@ -101,5 +101,5 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 20px
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-  .hero-preview { display: none; }
+  .hero-preview canvas { display: none; }
 }

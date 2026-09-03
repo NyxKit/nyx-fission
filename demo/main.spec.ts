@@ -127,7 +127,7 @@ describe('compiled demo entry', () => {
     expect(styles).toContain('background: var(--nyx-c-bg-mute);')
     expect(mobileStyles).toContain('.hero { min-height: 610px; }')
     expect(mobileStyles).toContain('.hero-copy { padding: 72px 20px 48px; }')
-    expect(reducedMotionStyles).toContain('.hero-preview { display: none; }')
+    expect(reducedMotionStyles).toContain('.hero-preview canvas { display: none; }')
   })
 
   it('uses the MP4 playground video fixture', () => {
