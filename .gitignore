@@ -3,4 +3,4 @@
 node_modules/
 dist/
 dist-demo/
-demo/public/fixtures/hero*.mp4
+demo/public/fixtures/hero-alternatives/

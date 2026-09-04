@@ -18,7 +18,7 @@ type Status = 'Waiting for a source' | 'Loading source' | 'Live' | 'Needs attent
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
 const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
-const heroVideoUrl = new URL('./fixtures/hero2.mp4', document.baseURI).href
+const heroVideoUrl = new URL('./fixtures/hero.mp4', document.baseURI).href
 const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)

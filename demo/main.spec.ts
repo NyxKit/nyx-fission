@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,6 +7,22 @@ import { describe, expect, it } from 'vitest'
 const demoDirectory = dirname(fileURLToPath(import.meta.url))
 
 describe('compiled demo entry', () => {
+  it('tracks the hero fixture used by the production demo', () => {
+    const repositoryRoot = resolve(demoDirectory, '..')
+    const trackedFiles = execFileSync('git', ['ls-files', '--', 'demo/public/fixtures/hero.mp4'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    })
+
+    expect(trackedFiles.trim()).toBe('demo/public/fixtures/hero.mp4')
+  })
+
+  it('ignores alternate hero fixtures', () => {
+    const gitignore = readFileSync(resolve(demoDirectory, '../.gitignore'), 'utf8')
+
+    expect(gitignore).toContain('demo/public/fixtures/hero-alternatives/')
+  })
+
   it('mounts an SFC instead of relying on a runtime template compiler', () => {
     const main = readFileSync(resolve(demoDirectory, 'main.ts'), 'utf8')
     const app = readFileSync(resolve(demoDirectory, 'App.vue'), 'utf8')
@@ -13,6 +30,12 @@ describe('compiled demo entry', () => {
     expect(main).toContain("import App from './App.vue'")
     expect(main).not.toContain('template: `')
     expect(app).toContain('<canvas id="particles-canvas"')
+  })
+
+  it('uses the tracked SVG fixture as the favicon', () => {
+    const index = readFileSync(resolve(demoDirectory, 'index.html'), 'utf8')
+
+    expect(index).toContain('<link rel="icon" type="image/svg+xml" href="./fixtures/nyx-orbit.svg" />')
   })
 
   it('keeps the hero preview independent with dark luma filtering', () => {
@@ -24,7 +47,7 @@ describe('compiled demo entry', () => {
     expect(app).toContain('hero-canvas')
     expect(app).toContain('heroCanvas')
     expect(app).toContain('heroInstance')
-    expect(app).toMatch(/const heroVideoUrl = new URL\('\.\/fixtures\/hero[0-6]\.mp4', document\.baseURI\)\.href/)
+    expect(app).toContain("const heroVideoUrl = new URL('./fixtures/hero.mp4', document.baseURI).href")
     expect(app).toContain('lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.2, coherence: 0.3 }')
     expect(heroFactory).toContain('source: heroVideoUrl')
     expect(heroFactory).toContain('threshold: 0.2')
