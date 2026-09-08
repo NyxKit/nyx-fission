@@ -186,6 +186,20 @@ describe('NyxFission orchestration', () => {
     )
   })
 
+  it.each([null, {}, { threshold: 0.2 }])('rejects missing luma-key modes in %j', (lumaKey) => {
+    expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: lumaKey as any })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),
+    )
+  })
+
+  it('defaults omitted luma values while preserving an explicit zero', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg', lumaKey: { mode: LumaKeyMode.Dark, threshold: 0, coherence: undefined } })
+    particles.mount(canvas())
+    await particles.ready
+    expect(mocks.runtimeInstances[0].lumaKey).toEqual({ mode: LumaKeyMode.Dark, threshold: 0, coherence: 0 })
+    particles.destroy()
+  })
+
   it('rejects an unsupported nested luma-key mode before starting work', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', lumaKey: { mode: 'mid' as LumaKeyMode } })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'sampling' }),

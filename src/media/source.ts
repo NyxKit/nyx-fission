@@ -37,22 +37,18 @@ function mediaAbortError(): NyxError {
   return new NyxError('Media source loading was cancelled', 'DESTROYED', NyxErrorStage.Source)
 }
 
-function removeElement(element: { remove: () => void }): void {
-  element.remove()
-}
-
-function disposeUrlImage(element: HTMLImageElement): () => void {
+function createImageDisposer(element: HTMLImageElement): () => void {
   let disposed = false
   return () => {
     if (!disposed) {
       disposed = true
       element.src = ''
-      removeElement(element)
+      element.remove()
     }
   }
 }
 
-function disposeUrlVideo(element: HTMLVideoElement): () => void {
+function createVideoDisposer(element: HTMLVideoElement): () => void {
   let disposed = false
   return () => {
     if (!disposed) {
@@ -60,7 +56,7 @@ function disposeUrlVideo(element: HTMLVideoElement): () => void {
       element.pause()
       element.removeAttribute('src')
       element.load()
-      removeElement(element)
+      element.remove()
     }
   }
 }
@@ -80,7 +76,7 @@ function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
       settled = true
       cleanup()
       element.src = ''
-      removeElement(element)
+      element.remove()
       reject(mediaAbortError())
     }
     const handleLoad = () => {
@@ -93,14 +89,14 @@ function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
         width: element.naturalWidth,
         height: element.naturalHeight,
         getFrameSource: () => element,
-        dispose: disposeUrlImage(element),
+        dispose: createImageDisposer(element),
       })
     }
     const handleError = (cause: Event) => {
       if (settled) return
       settled = true
       cleanup()
-      removeElement(element)
+      element.remove()
       reject(mediaLoadError(cause))
     }
 
@@ -122,7 +118,7 @@ function loadUrlImage(url: string, signal?: AbortSignal): Promise<ImageSource> {
 
 function loadUrlVideo(url: string, signal?: AbortSignal): Promise<VideoSource> {
   const element = document.createElement('video')
-  const dispose = disposeUrlVideo(element)
+  const dispose = createVideoDisposer(element)
 
   return new Promise((resolve, reject) => {
     let settled = false
@@ -216,7 +212,7 @@ async function loadUserMedia(signal?: AbortSignal): Promise<VideoSource> {
     if (value) element.pause()
     if (value) stopStream(value)
     element.srcObject = null
-    removeElement(element)
+    element.remove()
   }
   const handleAbort = () => {
     if (aborted) return
@@ -305,11 +301,7 @@ async function loadUserMedia(signal?: AbortSignal): Promise<VideoSource> {
     width: element.videoWidth,
     height: element.videoHeight,
     getFrameSource: () => element,
-    dispose: (() => {
-      return () => {
-        dispose()
-      }
-    })(),
+    dispose: () => dispose(),
   }
 }
 

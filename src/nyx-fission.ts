@@ -3,6 +3,7 @@
 import { NyxEventEmitter } from './events'
 import { NyxError } from './errors'
 import { validateParticleDepth } from './depth'
+import { resolveLumaKeyConfig } from './luma-key'
 import { FrameSampler } from './frame-sampler'
 import { loadMediaSource, type LoadedSource } from './media/source'
 import { resolveMediaType } from './media/type'
@@ -11,18 +12,15 @@ import { createParticleField, updateParticleField, type ParticleField } from './
 import { ThreeRuntime } from './runtime'
 import { resolveCanvas, validateCanvas, type TargetResolution } from './target'
 import { resolveTheme } from './themes'
-import { LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type NyxEventMap, type NyxFissionConfig, type ResolvedLumaKeyConfig } from './types'
+import { MediaType, NyxErrorStage, NyxEvent, ThemeName, type NyxEventMap, type NyxFissionConfig, type ResolvedLumaKeyConfig } from './types'
 
 type State = 'created' | 'loading' | 'ready' | 'failed' | 'destroyed'
 const DYNAMIC_SAMPLE_INTERVAL_MS = 1000 / 30
 const DEFAULT_DEPTH = 0.35
-const DEFAULT_LUMA_KEY_THRESHOLD = 0.1
-const DEFAULT_LUMA_KEY_COHERENCE = 0
 const mediaTypes: readonly MediaType[] = Object.values(MediaType)
 const themeNames: readonly ThemeName[] = Object.values(ThemeName)
-const lumaKeyModes: readonly LumaKeyMode[] = Object.values(LumaKeyMode)
 
-function validateConfig(config: NyxFissionConfig): ResolvedLumaKeyConfig {
+function validateConfig(config: NyxFissionConfig): void {
   if (config.type !== undefined && !mediaTypes.includes(config.type)) {
     throw new NyxError(`Unsupported media type: ${String(config.type)}`, 'INVALID_CONFIG', NyxErrorStage.Source)
   }
@@ -33,22 +31,9 @@ function validateConfig(config: NyxFissionConfig): ResolvedLumaKeyConfig {
   if (Object.prototype.hasOwnProperty.call(config, 'lumaKeyThreshold')) {
     throw new NyxError('The top-level luma-key threshold was removed; use lumaKey.threshold', 'INVALID_CONFIG', NyxErrorStage.Sampling)
   }
-  const lumaKey = config.lumaKey
-  const mode: LumaKeyMode | undefined = lumaKey === undefined ? LumaKeyMode.None : typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.mode : undefined
-  if (mode === undefined || !lumaKeyModes.includes(mode)) {
-    throw new NyxError(`Unsupported luma-key mode: ${String(mode)}`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
-  }
-  const threshold = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.threshold === undefined ? DEFAULT_LUMA_KEY_THRESHOLD : lumaKey.threshold : DEFAULT_LUMA_KEY_THRESHOLD
-  const coherence = lumaKey !== undefined && typeof lumaKey === 'object' && lumaKey !== null ? lumaKey.coherence === undefined ? DEFAULT_LUMA_KEY_COHERENCE : lumaKey.coherence : DEFAULT_LUMA_KEY_COHERENCE
-  for (const [name, value] of [['threshold', threshold], ['coherence', coherence]] as const) {
-    if (!Number.isFinite(value) || value < 0 || value > 1) {
-      throw new NyxError(`Luma-key ${name} must be finite and within 0..1`, 'INVALID_CONFIG', NyxErrorStage.Sampling)
-    }
-  }
   if (config.type !== MediaType.Usermedia && !config.source) {
     throw new NyxError('A media source is required', 'INVALID_CONFIG', NyxErrorStage.Source)
   }
-  return { mode, threshold, coherence }
 }
 
 function lifecycleError(message: string, cause?: unknown): NyxError {
@@ -87,7 +72,8 @@ export class NyxFission {
 
   constructor(config: NyxFissionConfig = {}) {
     this.config = { ...config }
-    this.lumaKey = validateConfig(this.config)
+    validateConfig(this.config)
+    this.lumaKey = resolveLumaKeyConfig(this.config.lumaKey)
 
     let resolveReady!: () => void
     let rejectReady!: (_error: NyxError) => void
@@ -141,22 +127,11 @@ export class NyxFission {
   destroy(): void {
     if (this.state === 'destroyed') return
     this.state = 'destroyed'
-    this.targetResolution?.cancel()
-    this.targetResolution = undefined
-    this.loadController?.abort()
-    this.loadController = undefined
-    this.runtime?.dispose()
-    this.sampler?.dispose()
-    this.source?.dispose()
-    this.runtime = undefined
-    this.sampler = undefined
-    this.source = undefined
-    this.field = undefined
-    this.target = undefined
+    this.releaseResources()
     this.rejectReady(lifecycleError('NyxFission has been destroyed'))
     if (!this.destroyEmitted) {
       this.destroyEmitted = true
-       this.events.emit(NyxEvent.Destroy, undefined)
+      this.events.emit(NyxEvent.Destroy, undefined)
     }
     this.events.clear()
   }
@@ -203,7 +178,7 @@ export class NyxFission {
       this.runtime?.start((time) => this.renderFrame(time))
       this.state = 'ready'
       this.resolveReady()
-       this.events.emit(NyxEvent.Ready, undefined)
+      this.events.emit(NyxEvent.Ready, undefined)
     } catch (error) {
       this.fail(asNyxError(error, this.stageFor(error)))
     } finally {
@@ -254,10 +229,7 @@ export class NyxFission {
     this.fail(asNyxError(error, NyxErrorStage.Rendering))
   }
 
-  private fail(error: NyxError): void {
-    if (this.state === 'destroyed' || this.state === 'failed') return
-    this.state = 'failed'
-    this.failureError = error
+  private releaseResources(): void {
     this.targetResolution?.cancel()
     this.targetResolution = undefined
     this.loadController?.abort()
@@ -270,10 +242,17 @@ export class NyxFission {
     this.source = undefined
     this.field = undefined
     this.target = undefined
+  }
+
+  private fail(error: NyxError): void {
+    if (this.state === 'destroyed' || this.state === 'failed') return
+    this.state = 'failed'
+    this.failureError = error
+    this.releaseResources()
     this.rejectReady(error)
     if (!this.errorEmitted) {
       this.errorEmitted = true
-       this.events.emit(NyxEvent.Error, { error, stage: error.stage })
+      this.events.emit(NyxEvent.Error, { error, stage: error.stage })
     }
   }
 }
