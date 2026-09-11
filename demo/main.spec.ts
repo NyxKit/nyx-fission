@@ -51,13 +51,13 @@ describe('compiled demo entry', () => {
     expect(gitignore).toContain('demo/public/fixtures/hero-alternatives/')
   })
 
-  it('uses the tracked SVG fixture as the favicon', () => {
+  it('uses the dedicated SVG favicon', () => {
     const markup = readFileSync(resolve(demoDirectory, 'index.html'), 'utf8')
     const page = new DOMParser().parseFromString(markup, 'text/html')
     const favicon = page.querySelector('link[rel="icon"]')
 
     expect(favicon?.getAttribute('type')).toBe('image/svg+xml')
-    expect(favicon?.getAttribute('href')).toBe('./fixtures/nyx-orbit.svg')
+    expect(favicon?.getAttribute('href')).toBe('./favicon.svg')
   })
 
   it('visually hides playground legends while retaining them for assistive technology', () => {

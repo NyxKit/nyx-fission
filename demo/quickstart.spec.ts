@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { buildQuickstart, commitDemoDepth } from './quickstart'
-import { EntranceAnimationType, LumaKeyMode, type LumaKeyConfig } from '../src/index'
+import { EntranceAnimationType, LumaKeyMode, NyxInteraction, type LumaKeyConfig } from '../src/index'
 
 describe('buildQuickstart', () => {
+  it.each(Object.entries(NyxInteraction))('exports the %s interaction settings', (member, type) => {
+    const example = buildQuickstart('image', '/image.png', 0.35, undefined, undefined, { type, radius: 150, strength: 1, delay: 200, duration: 300 })
+    expect(example).toContain('import { NyxInteraction,')
+    expect(example).toContain(`interaction: { type: NyxInteraction.${member}, radius: 150, strength: 1, delay: 200, duration: 300 }`)
+  })
   it.each(Object.entries(EntranceAnimationType))('exports a working manual example for %s', (member, type) => {
     const example = buildQuickstart('image', '/image.png', 0.35, undefined, { type, autoStart: false, duration: 1400, delay: 250 })
     expect(example).toContain(`entrance: { type: EntranceAnimationType.${member}, autoStart: false, duration: 1400, delay: 250 }`)

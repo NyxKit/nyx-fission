@@ -1,13 +1,23 @@
 # Demo styles
 
 NyxTabs groups the playground into Basic (source, theme, depth), LumaKey
-(filtering), and Entrance. Switching tabs preserves controls and the current
-media instance. NyxTabs uses its default appearance and interaction behavior.
+(filtering), Entrance, and Interaction. Switching tabs preserves controls and the current
+media instance. NyxTabs retains its default appearance; the tab navigation
+scrolls horizontally when needed so all four tabs fit without shifting the fields.
 The Entrance fieldset controls `entrance.type`, `autoStart`, `duration`, and `delay`.
 Timing edits use the existing debounce and clamp to the demo's 0–10,000 ms range.
 Manual start displays “Ready, waiting to play”; Play/Replay calls `playEntrance()`
 on the current instance. Preset/configuration edits recreate only the playground
 and update its generated integration example. The hero remains independent.
+
+The Interaction tab configures `interaction.type`, `radius` (1–1000 CSS pixels),
+`strength` (0–1), `delay`, and `duration` (0–10,000 ms in the demo). None is the default and disables
+the numeric controls. Attract/Repel move in the image plane; Push/Pull move in
+depth. Hover or touch the preview after its entrance to try the effect. Changes
+use the existing debounce and update the generated example. Reduced motion
+disables pointer effects; touch interactions preserve native scrolling. Delay
+holds old particle displacements after pointer movement or exit; duration
+controls their transitions toward the effect and back to rest.
 
 `main.ts` imports `style.scss`. Vite compiles it with Sass; the library itself does not depend on Sass at runtime.
 

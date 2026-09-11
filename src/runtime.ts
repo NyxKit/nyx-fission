@@ -15,7 +15,9 @@ import vertexShader from './shaders/particles.vert.glsl?raw'
 import { validateParticleDepth } from './depth'
 import { NyxError } from './errors'
 import type { EntranceController } from './entrance'
-import { EntranceAnimationType, LumaKeyMode, NyxErrorStage, type ResolvedLumaKeyConfig } from './types'
+import { InteractionController } from './interaction'
+import { InteractionField } from './interaction-field'
+import { EntranceAnimationType, LumaKeyMode, NyxErrorStage, NyxInteraction, type InteractionConfig, type ResolvedLumaKeyConfig } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
@@ -82,6 +84,10 @@ export class ThreeRuntime {
   private readonly lumaKeyThreshold: number
   private readonly lumaKeyCoherence: number
   private readonly entrance: EntranceController | undefined
+  private readonly interaction: InteractionController
+  private interactionField: InteractionField | undefined
+  private interactionAttribute: Float32BufferAttribute | undefined
+  private interactionRevision = 0
   private fieldRadius = 0.5
   private fieldHalfWidth = 0.5
   private fieldHalfHeight = 0.5
@@ -91,12 +97,13 @@ export class ThreeRuntime {
   private wasVisible = true
   private lastEntranceToken: object | undefined
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: ErrorCallback, entrance?: EntranceController) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: ErrorCallback, entrance?: EntranceController, interaction?: InteractionConfig) {
     validateParticleDepth(depth, NyxErrorStage.Rendering)
     if (!Object.values(LumaKeyMode).includes(lumaKey.mode) || !Number.isFinite(lumaKey.threshold) || lumaKey.threshold < 0 || lumaKey.threshold > 1 || !Number.isFinite(lumaKey.coherence) || lumaKey.coherence < 0 || lumaKey.coherence > 1) {
       throw new NyxError('Invalid luma-key configuration', 'INVALID_CONFIG', NyxErrorStage.Rendering)
     }
     this.errorCallback = errorCallback
+    this.interaction = new InteractionController(interaction)
     this.entrance = entrance
     this.depth = depth
     this.lumaKey = lumaKey.mode
@@ -114,6 +121,7 @@ export class ThreeRuntime {
       vertexShader,
       fragmentShader,
       transparent: true,
+      defines: this.interaction.config.type === NyxInteraction.None || this.interaction.config.strength === 0 ? {} : { NYX_INTERACTION: 1 },
       uniforms: {
         pointSize: { value: 3 },
         depth: { value: depth },
@@ -172,9 +180,11 @@ export class ThreeRuntime {
       observer.observe(canvas)
       this.observer = observer
       entrance?.connect(canvas.ownerDocument)
+      this.interaction.connect(canvas)
     } catch (cause) {
       observer?.disconnect()
       entrance?.disconnect()
+      this.interaction.disconnect()
       this.geometry?.dispose()
       this.material?.dispose()
       this.renderer?.dispose()
@@ -194,6 +204,11 @@ export class ThreeRuntime {
     // A changed media aspect can produce a new grid with the same particle count.
     if (this.fieldPositions !== field.positions) {
       this.fieldPositions = field.positions
+      if (this.interaction.config.type !== NyxInteraction.None && this.interaction.config.strength > 0) {
+        this.interactionField = new InteractionField(field, this.interaction.config)
+        this.interactionAttribute = new Float32BufferAttribute(this.interactionField.offsets, 3)
+        geometry.setAttribute('interactionOffset', this.interactionAttribute)
+      }
       this.fieldRadius = 0
       this.fieldHalfWidth = 0
       this.fieldHalfHeight = 0
@@ -226,6 +241,7 @@ export class ThreeRuntime {
       this.geometry = targetGeometry
       points.geometry = targetGeometry
     }
+    if (this.interactionAttribute) targetGeometry.setAttribute('interactionOffset', this.interactionAttribute)
     targetGeometry.setAttribute('position', positionAttribute)
     targetGeometry.setAttribute('color', colorAttribute)
     targetGeometry.setAttribute('luminance', luminanceAttribute)
@@ -257,6 +273,7 @@ export class ThreeRuntime {
         const camera = this.camera
         if (!renderer || !scene || !camera) throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
         this.applyEntrance()
+        this.applyInteraction(time)
         renderer.render(scene, camera)
         this.entrance?.afterRender(token)
         if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
@@ -272,8 +289,11 @@ export class ThreeRuntime {
     if (this.disposed) return
     this.disposed = true
     this.entrance?.disconnect()
+    this.interaction.disconnect()
     this.lastEntranceToken = undefined
     this.fieldPositions = undefined
+    this.interactionField = undefined
+    this.interactionAttribute = undefined
     this.running = false
     this.frameCallback = undefined
     const canvas = this.canvas
@@ -352,11 +372,46 @@ export class ThreeRuntime {
     material.uniforms.entranceRadius.value = Math.max(this.fieldRadius, Math.hypot(halfHeight, halfHeight * camera.aspect)) * 1.15
     const originZ = zMin - Math.max(4 * this.fieldRadius, camera.position.z)
     material.uniforms.entranceOriginZ.value = originZ
-    const normalFar = cameraFrame(camera.aspect, this.depth).far
-    const travelsInDepth = type === EntranceAnimationType.Depth || type === EntranceAnimationType.Scatter
-    const far = travelsInDepth ? Math.max(normalFar, camera.position.z - originZ + CAMERA_GAP) : normalFar
-    if (camera.far !== far) {
+  }
+
+  private applyInteraction(time: number): void {
+    const material = this.material
+    const camera = this.camera
+    const points = this.points
+    if (!material || !camera || !points) return
+    this.interaction.advance()
+    const entering = !!this.entrance && (!this.entrance.visible || this.entrance.progress < 1)
+    const field = this.interactionField
+    const attribute = this.interactionAttribute
+    if (field && attribute) {
+      const wasMoving = field.moving
+      if (entering || this.interactionRevision !== this.interaction.revision) field.reset()
+      this.interactionRevision = this.interaction.revision
+      if (!entering && (this.interaction.active || field.moving)) {
+        field.update({ time, active: this.interaction.active, pointer: this.interaction.pointer,
+          viewport: this.interaction.viewport, cameraZ: camera.position.z, aspect: camera.aspect,
+          fov: CAMERA_FOV, depth: this.depth })
+      }
+      if (wasMoving || field.moving) {
+        attribute.array.set(field.offsets)
+        attribute.needsUpdate = true
+      }
+    }
+    const interacting = field?.moving ?? false
+    points.frustumCulled = entering || interacting ? false : this.normalCulling
+    const frame = cameraFrame(camera.aspect, this.depth)
+    const type = this.entrance?.config.type
+    const travelsInDepth = entering && (type === EntranceAnimationType.Depth || type === EntranceAnimationType.Scatter)
+    let far = travelsInDepth ? Math.max(frame.far, camera.position.z - Number(material.uniforms.entranceOriginZ.value) + CAMERA_GAP) : frame.far
+    let near = frame.near
+    if (interacting) {
+      // Push/Pull cap depth displacement at 70% of each particle's camera distance.
+      near = Math.max(0.01, frame.near * 0.3)
+      far *= 1.7
+    }
+    if (camera.far !== far || camera.near !== near) {
       camera.far = far
+      camera.near = near
       camera.updateProjectionMatrix()
     }
   }

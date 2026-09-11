@@ -5,6 +5,8 @@ import {
   NyxErrorStage,
   NyxEvent,
   NyxFission,
+  NyxInteraction,
+  type InteractionConfig,
   LumaKeyMode,
   ThemeName,
   type LumaKeyConfig,
@@ -19,12 +21,19 @@ describe('public string enums', () => {
     expect(EntranceAnimationType).toEqual({ None: 'none', Gather: 'gather', Depth: 'depth', Fade: 'fade', Vortex: 'vortex', ScanLeftToRight: 'scan-left-to-right', ScanRightToLeft: 'scan-right-to-left', ScanTopToBottom: 'scan-top-to-bottom', ScanBottomToTop: 'scan-bottom-to-top', Scatter: 'scatter' })
     expect(NyxErrorStage).toEqual({ Target: 'target', Source: 'source', Sampling: 'sampling', Rendering: 'rendering', Lifecycle: 'lifecycle' })
     expect(LumaKeyMode).toEqual({ None: 'none', Dark: 'dark', Light: 'light' })
+    expect(NyxInteraction).toEqual({ None: 'none', Attract: 'attract', Repel: 'repel', Push: 'push', Pull: 'pull' })
   })
 
   it('continues validating invalid runtime configuration', () => {
     expect(() => new NyxFission({ source: './portrait.jpg', type: 'audio' as MediaType })).toThrowError(
       expect.objectContaining({ code: 'INVALID_CONFIG', stage: 'source' }),
     )
+  })
+
+  it('exports the nested interaction config type', () => {
+    const interaction: InteractionConfig = { type: NyxInteraction.Attract, radius: 100, delay: 200, duration: 300 }
+    const config: NyxFissionConfig = { source: 'image.jpg', interaction }
+    expect(config.interaction).toEqual(interaction)
   })
 
   it('exposes signed numeric depth in the public configuration', () => {

@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { EntranceAnimationType, LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type ResolvedLumaKeyConfig } from '../types'
+import { EntranceAnimationType, LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, NyxInteraction, ThemeName, type InteractionConfig, type ResolvedLumaKeyConfig } from '../types'
 import type { EntranceController } from '../entrance'
 
 const mocks = vi.hoisted(() => ({
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: ResolvedLumaKeyConfig; entrance?: EntranceController; errorCallback?: (_error: unknown) => void }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: ResolvedLumaKeyConfig; entrance?: EntranceController; interaction?: InteractionConfig; errorCallback?: (_error: unknown) => void }>,
 }))
 
 const FLOAT32_SAFE_DEPTH = 1_000_000
@@ -46,12 +46,14 @@ vi.mock('../runtime', () => ({
 
     lumaKey: ResolvedLumaKeyConfig
     entrance: EntranceController | undefined
+    interaction: InteractionConfig | undefined
 
-    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: (_error: unknown) => void, entrance?: EntranceController) {
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: (_error: unknown) => void, entrance?: EntranceController, interaction?: InteractionConfig) {
       this.depth = typeof depth === 'number' ? depth : 0
       this.lumaKey = lumaKey
       this.errorCallback = errorCallback
       this.entrance = entrance
+      this.interaction = interaction
       mocks.runtimeInstances.push(this)
     }
   },
@@ -135,6 +137,17 @@ describe('NyxFission orchestration', () => {
     particles.destroy()
     await expect(completion).rejects.toMatchObject({ code: 'DESTROYED' })
     await expect(particles.playEntrance()).rejects.toMatchObject({ code: 'DESTROYED' })
+  })
+
+  it('copies interaction settings before asynchronous mounting and passes them to the runtime', async () => {
+    const interaction = { type: NyxInteraction.Attract, radius: 150, delay: 200, duration: 300 }
+    const particles = new NyxFission({ source: './portrait.jpg', interaction })
+    interaction.type = NyxInteraction.Repel
+    interaction.radius = 900
+    particles.mount(canvas())
+    await particles.ready
+    expect(mocks.runtimeInstances[0].interaction).toEqual({ type: NyxInteraction.Attract, radius: 150, strength: 1, delay: 200, duration: 300 })
+    particles.destroy()
   })
 
   it('rejects a queued entrance with the original source failure', async () => {

@@ -2,6 +2,7 @@
 
 import { NyxEventEmitter } from './events'
 import { EntranceController } from './entrance'
+import { resolveInteractionConfig } from './interaction'
 import { NyxError } from './errors'
 import { validateParticleDepth } from './depth'
 import { resolveLumaKeyConfig } from './luma-key'
@@ -52,6 +53,7 @@ export class NyxFission {
   private readonly config: NyxFissionConfig
   private readonly lumaKey: ResolvedLumaKeyConfig
   private readonly entrance: EntranceController
+  private readonly interaction: ReturnType<typeof resolveInteractionConfig>
   private readonly events = new NyxEventEmitter<NyxEventMap>()
   private readonly resolveReady: () => void
   private readonly rejectReady: (_error: NyxError) => void
@@ -76,6 +78,7 @@ export class NyxFission {
     this.config = { ...config }
     validateConfig(this.config)
     this.lumaKey = resolveLumaKeyConfig(this.config.lumaKey)
+    this.interaction = resolveInteractionConfig(this.config.interaction)
     this.entrance = new EntranceController(this.config.entrance,
       (event) => this.events.emit(NyxEvent.EntranceStart, event),
       (event) => this.events.emit(NyxEvent.EntranceComplete, event))
@@ -207,7 +210,7 @@ export class NyxFission {
     this.frameWidth = frame.width
     this.frameHeight = frame.height
     this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx), this.lumaKey)
-    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, this.lumaKey, (error) => this.handleRuntimeError(error), this.entrance)
+    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, this.lumaKey, (error) => this.handleRuntimeError(error), this.entrance, this.interaction)
   }
 
   private renderFrame(time = 0, force = false): void {
