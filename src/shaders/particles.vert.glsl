@@ -7,6 +7,9 @@ uniform float entranceOriginZ;
 uniform float entranceFieldRadius;
 uniform float entranceHalfWidth;
 uniform float entranceHalfHeight;
+#ifdef NYX_INTERACTION
+attribute vec3 interactionOffset;
+#endif
 
 attribute vec3 color;
 attribute float luminance;
@@ -81,6 +84,14 @@ void main() {
   particleColor = color;
   particleLuminance = luminance;
   particleCoherence = coherence;
+  vec4 viewPosition = modelViewMatrix * vec4(displacedPosition, 1.0);
+#ifdef NYX_INTERACTION
+  float cameraDistance = -viewPosition.z;
+  viewPosition.xyz += interactionOffset;
+  // A video frame can change luminance while an old displacement is held.
+  viewPosition.z = min(viewPosition.z, -cameraDistance * 0.3);
+  sizeScale *= cameraDistance / (-viewPosition.z);
+#endif
   gl_PointSize = pointSize * sizeScale;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0);
+  gl_Position = projectionMatrix * viewPosition;
 }

@@ -1,4 +1,4 @@
-import { EntranceAnimationType, LumaKeyMode, type EntranceConfig, type LumaKeyConfig } from '../src/index'
+import { EntranceAnimationType, LumaKeyMode, NyxInteraction, type EntranceConfig, type InteractionConfig, type LumaKeyConfig } from '../src/index'
 
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
 export type QuickstartLumaKey = LumaKeyConfig
@@ -19,7 +19,7 @@ export function commitDemoDepth(input: string | number, currentDepth: number): n
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 
-export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = { mode: LumaKeyMode.None }, entrance?: EntranceConfig): string {
+export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = { mode: LumaKeyMode.None }, entrance?: EntranceConfig, interaction?: InteractionConfig): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
@@ -30,9 +30,11 @@ export function buildQuickstart(source: QuickstartSource, sourceUrl: string, dep
   const lumaKeyConfig = `{ mode: LumaKeyMode.${mode === LumaKeyMode.Dark ? 'Dark' : mode === LumaKeyMode.Light ? 'Light' : 'None'}, threshold: ${String(threshold)}, coherence: ${String(coherence)} }`
   const entranceMember = Object.entries(EntranceAnimationType).find(([, value]) => value === entrance?.type)?.[0] ?? 'None'
   const entranceConfig = entrance ? `, entrance: { type: EntranceAnimationType.${entranceMember}, autoStart: ${entrance.autoStart !== false}, duration: ${entrance.duration ?? 1000}, delay: ${entrance.delay ?? 0} }` : ''
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: ${lumaKeyConfig}${entranceConfig}`
+  const interactionMember = Object.entries(NyxInteraction).find(([, value]) => value === interaction?.type)?.[0] ?? 'None'
+  const interactionConfig = interaction ? `, interaction: { type: NyxInteraction.${interactionMember}, radius: ${interaction.radius ?? 100}, strength: ${interaction.strength ?? 1}, delay: ${interaction.delay ?? 0}, duration: ${interaction.duration ?? 300} }` : ''
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: ${lumaKeyConfig}${entranceConfig}${interactionConfig}`
 
-  return `import { ${entrance ? 'EntranceAnimationType, ' : ''}LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
+  return `import { ${entrance ? 'EntranceAnimationType, ' : ''}${interaction ? 'NyxInteraction, ' : ''}LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${config} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')

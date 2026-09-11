@@ -7,6 +7,7 @@ import {
   LumaKeyMode,
   MediaType,
   NyxEvent,
+  NyxInteraction,
   ThemeName,
   type NyxFissionConfig,
 } from '../src/types'
@@ -220,7 +221,7 @@ describe('demo application', () => {
   it('switches NyxTabs without replacing media or resetting edited settings', async () => {
     await mountDemo()
     const playground = instanceFor('particles-canvas')
-    expect([...host.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(['Basic', 'LumaKey', 'Entrance'])
+    expect([...host.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(['Basic', 'LumaKey', 'Entrance', 'Interaction'])
     await clickButton('Entrance')
     expect(host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Entrance')
     await clickButton('LumaKey')
@@ -261,6 +262,31 @@ describe('demo application', () => {
     expect(host.querySelector('#playground-title')?.textContent?.trim()).toBe(
       'Needs attention',
     )
+  })
+
+  it('configures pointer effects, preserves settings across tabs, and updates the example', async () => {
+    await mountDemo()
+    expect(instanceFor('particles-canvas').config.interaction).toEqual({ type: NyxInteraction.None, radius: 100, strength: 1, delay: 0, duration: 300 })
+    const hero = instanceFor('hero-canvas')
+    await clickButton('Interaction')
+    const select = host.querySelector<HTMLSelectElement>('#interaction-type')!
+    expect([...select.options].map(option => option.value)).toEqual(Object.values(NyxInteraction))
+    select.value = NyxInteraction.Pull
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    await changeInput('interaction-radius', '150')
+    await changeInput('interaction-strength', '0.4')
+    await changeInput('interaction-delay', '200')
+    await changeInput('interaction-duration', '400')
+    await vi.advanceTimersByTimeAsync(250)
+    const playground = instanceFor('particles-canvas')
+    expect(playground.config.interaction).toEqual({ type: NyxInteraction.Pull, radius: 150, strength: 0.4, delay: 200, duration: 400 })
+    expect(host.querySelector('pre code')?.textContent).toContain('interaction: { type: NyxInteraction.Pull, radius: 150, strength: 0.4, delay: 200, duration: 400 }')
+    await clickButton('Basic')
+    await clickButton('Interaction')
+    expect(host.querySelector<HTMLInputElement>('#interaction-radius')?.value).toBe('150')
+    expect(playground.destroy).not.toHaveBeenCalled()
+    expect(hero.destroy).not.toHaveBeenCalled()
   })
 
   it('switches the playground to video and leaves the hero running', async () => {

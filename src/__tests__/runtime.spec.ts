@@ -1,11 +1,11 @@
-/* global HTMLCanvasElement, ResizeObserver, ResizeObserverCallback, ResizeObserverEntry, FrameRequestCallback, document */
+/* global HTMLCanvasElement, ResizeObserver, ResizeObserverCallback, ResizeObserverEntry, FrameRequestCallback, document, MouseEvent, performance, DOMRect */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NyxError } from '../errors'
 import { EntranceController } from '../entrance'
 import { ThreeRuntime } from '../runtime'
-import { EntranceAnimationType, LumaKeyMode, type ResolvedLumaKeyConfig } from '../types'
+import { EntranceAnimationType, LumaKeyMode, NyxInteraction, type ResolvedLumaKeyConfig } from '../types'
 import type { ParticleField } from '../particles'
 import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
@@ -179,6 +179,51 @@ describe('ThreeRuntime', () => {
     expect(observer.observe).toHaveBeenCalledWith(target)
 
     runtime.dispose()
+  })
+
+  it.each([NyxInteraction.Attract, NyxInteraction.Repel, NyxInteraction.Push, NyxInteraction.Pull])('renders %s after entrance completion and restores clipping on release', (type) => {
+    const target = canvas()
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 640, height: 360 } as DOMRect)
+    let time = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => time)
+    const entrance = new EntranceController({ type: EntranceAnimationType.Gather, duration: 1000 })
+    const runtime = new ThreeRuntime(target, field(), 0, lumaKey(), undefined, entrance, { type, duration: 300, delay: 200 })
+    const camera = three.PerspectiveCamera.mock.results.at(-1)!.value
+    const geometry = three.BufferGeometry.mock.results.at(-1)!.value
+    const points = three.Points.mock.results.at(-1)!.value
+    const normal = { near: camera.near, far: camera.far, z: camera.position.z }
+    entrance.ready()
+    runtime.start(vi.fn())
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+    frame(0)
+    const event = new MouseEvent('pointerenter', { clientX: 300, clientY: 180 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    target.dispatchEvent(event)
+    frame(500)
+    expect([...geometry.attributes.interactionOffset.array]).toEqual([0, 0, 0])
+    frame(1000)
+    frame(1300)
+    if (type !== NyxInteraction.Attract) expect(geometry.attributes.interactionOffset.array.some((value: number) => value !== 0)).toBe(true)
+    expect(camera.near).toBeLessThan(normal.near)
+    expect(camera.far).toBeGreaterThan(normal.far)
+    expect(camera.position.z).toBe(normal.z)
+    expect(points.frustumCulled).toBe(false)
+    expect(geometry.attributes.position.needsUpdate).toBe(false)
+    time = 1300
+    const leave = new MouseEvent('pointerleave')
+    Object.defineProperty(leave, 'pointerId', { value: 1 })
+    target.dispatchEvent(leave)
+    frame(1300)
+    frame(1500)
+    frame(1800)
+    expect([...geometry.attributes.interactionOffset.array]).toEqual([0, 0, 0])
+    expect(camera.near).toBe(normal.near)
+    expect(camera.far).toBe(normal.far)
+    expect(points.frustumCulled).toBe(true)
+    const remove = vi.spyOn(target, 'removeEventListener')
+    runtime.dispose()
+    expect(remove).toHaveBeenCalledWith('pointermove', expect.any(Function))
+    clock.mockRestore()
   })
 
   it.each([EntranceAnimationType.Depth, EntranceAnimationType.Scatter].flatMap(type => [-1_000_000, -1, 0, 1, 1_000_000].map(depth => [type, depth] as const)))('animates %s at depth %s with safe clipping, stable buffers, and exact settlement', async (type, depth) => {
@@ -634,7 +679,8 @@ describe('ThreeRuntime', () => {
     expect(vertexShader).toMatch(/attribute\s+float\s+coherence\s*;/)
     expect(vertexShader).toContain('displacedPosition.z = luminance * depth')
     expect(vertexShader).toContain('gl_PointSize = pointSize')
-    expect(vertexShader).toContain('gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0)')
+    expect(vertexShader).toContain('viewPosition = modelViewMatrix * vec4(displacedPosition, 1.0)')
+    expect(vertexShader).toContain('gl_Position = projectionMatrix * viewPosition')
     expect(vertexShader).toContain('particleColor = color')
     expect(vertexShader).toContain('varying float particleLuminance')
     expect(vertexShader).toContain('particleLuminance = luminance')

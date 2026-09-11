@@ -18,6 +18,7 @@ import {
   MediaType,
   NyxEvent,
   NyxFission,
+  NyxInteraction,
   type NyxErrorEvent,
   ThemeName,
 } from '../src/index'
@@ -50,6 +51,7 @@ type Status =
   | 'Webcam unavailable'
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
+const faviconUrl = new URL('./favicon.svg', document.baseURI).href
 const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
 const heroVideoUrl = new URL('./fixtures/hero.mp4', document.baseURI).href
 const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
@@ -60,7 +62,26 @@ const lumaKey = ref<LumaKeyMode>(LumaKeyMode.None)
 const lumaKeyThreshold = ref(0.1)
 const lumaKeyCoherence = ref(0)
 const configTab = ref('Basic')
-const configTabs = ['Basic', 'LumaKey', 'Entrance']
+const configTabs = ['Basic', 'LumaKey', 'Entrance', 'Interaction']
+const interactionType = ref(NyxInteraction.None)
+const interactionRadius = ref(100)
+const interactionStrength = ref(1)
+const interactionDelay = ref(0)
+const interactionDuration = ref(300)
+const interactionConfig = computed(() => ({
+  type: interactionType.value,
+  radius: interactionRadius.value,
+  strength: interactionStrength.value,
+  delay: interactionDelay.value,
+  duration: interactionDuration.value,
+}))
+const interactionOptions = [
+  { value: NyxInteraction.None, label: 'None' },
+  { value: NyxInteraction.Attract, label: 'Attract · toward pointer' },
+  { value: NyxInteraction.Repel, label: 'Repel · away from pointer' },
+  { value: NyxInteraction.Push, label: 'Push · away from camera' },
+  { value: NyxInteraction.Pull, label: 'Pull · toward camera' },
+]
 const entranceType = ref(EntranceAnimationType.None)
 const entranceTrigger = ref('automatic')
 const entranceDuration = ref(1000)
@@ -90,6 +111,28 @@ const {
   update: updateEntranceDelay,
   commit: commitEntranceDelay,
 } = useDebouncedNumberInput(entranceDelay, commitTiming)
+const {
+  input: interactionRadiusInput,
+  update: updateInteractionRadius,
+  commit: commitInteractionRadius,
+} = useDebouncedNumberInput(interactionRadius, (input, current) =>
+  Math.min(1000, Math.max(1, commitTiming(input, current))),
+)
+const {
+  input: interactionStrengthInput,
+  update: updateInteractionStrength,
+  commit: commitInteractionStrength,
+} = useDebouncedNumberInput(interactionStrength, commitUnitInterval)
+const {
+  input: interactionDelayInput,
+  update: updateInteractionDelay,
+  commit: commitInteractionDelay,
+} = useDebouncedNumberInput(interactionDelay, commitTiming)
+const {
+  input: interactionDurationInput,
+  update: updateInteractionDuration,
+  commit: commitInteractionDuration,
+} = useDebouncedNumberInput(interactionDuration, commitTiming)
 const isUpdating = ref(false)
 const {
   input: depthInput,
@@ -126,6 +169,7 @@ const quickstartCode = computed(() =>
       coherence: lumaKeyCoherence.value,
     },
     entranceConfig.value,
+    interactionConfig.value,
   ),
 )
 
@@ -259,6 +303,7 @@ const restartPlayground = (): void => {
       theme: theme.value,
       depth: normalizeDemoDepth(depth.value),
       entrance: entranceConfig.value,
+      interaction: interactionConfig.value,
       lumaKey: {
         mode: lumaKey.value,
         threshold: lumaKeyThreshold.value,
@@ -419,6 +464,7 @@ const labelNyxControls = () => {
   for (const [id, label] of [
     ['entrance-type', 'Entrance animation'],
     ['entrance-trigger', 'Start entrance'],
+    ['interaction-type', 'Pointer effect'],
   ]) {
     const select = document.getElementById(id)
     const input = select
@@ -449,6 +495,11 @@ watch(
     entranceTrigger,
     entranceDuration,
     entranceDelay,
+    interactionType,
+    interactionRadius,
+    interactionStrength,
+    interactionDelay,
+    interactionDuration,
   ],
   () => {
     restartPlayground()
@@ -472,7 +523,7 @@ onBeforeUnmount(() => {
       >
         <img
           class="wordmark__mark"
-          src="/favicon.svg"
+          :src="faviconUrl"
           alt=""
           width="32"
           height="32"
@@ -509,7 +560,7 @@ onBeforeUnmount(() => {
       id="top"
     >
       <div class="hero__copy">
-        <p class="eyebrow">NYX / FISSION 1.1.1</p>
+        <p class="eyebrow">NYX / FISSION 1.2.0</p>
         <h1 class="hero__title">
           Media goes in.
           <br />
@@ -859,6 +910,116 @@ onBeforeUnmount(() => {
                       : 'The entrance runs when the media is ready.'
                   }}
                   Reduced motion reveals the field instantly.
+                </span>
+              </fieldset>
+            </template>
+            <template #tab-Interaction>
+              <fieldset class="demo-controls__group">
+                <legend class="demo-controls__legend">Interaction</legend>
+                <label
+                  class="demo-controls__label"
+                  for="interaction-type-control"
+                >
+                  Pointer effect
+                </label>
+                <NyxSelect
+                  id="interaction-type"
+                  v-model="interactionType"
+                  :options="interactionOptions"
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                />
+                <label
+                  class="demo-controls__label"
+                  for="interaction-radius"
+                >
+                  Radius (px)
+                </label>
+                <NyxInput
+                  id="interaction-radius"
+                  :model-value="interactionRadiusInput"
+                  @update:model-value="updateInteractionRadius"
+                  @blur="commitInteractionRadius"
+                  :type="NyxInputType.Number"
+                  :min="1"
+                  :max="1000"
+                  :step="10"
+                  :disabled="interactionType === NyxInteraction.None"
+                  :size="NyxSize.Small"
+                />
+                <span class="demo-controls__help">
+                  Distance around the pointer that affects particles, with a
+                  soft edge.
+                </span>
+                <label
+                  class="demo-controls__label"
+                  for="interaction-strength"
+                >
+                  Strength (0–1)
+                </label>
+                <NyxInput
+                  id="interaction-strength"
+                  :model-value="interactionStrengthInput"
+                  @update:model-value="updateInteractionStrength"
+                  @blur="commitInteractionStrength"
+                  :type="NyxInputType.Number"
+                  :min="0"
+                  :max="1"
+                  :step="0.05"
+                  :disabled="interactionType === NyxInteraction.None"
+                  :size="NyxSize.Small"
+                />
+                <span class="demo-controls__help">
+                  How far particles move: 0 has no effect, 1 uses the full
+                  displacement.
+                </span>
+                <div class="demo-controls__timing">
+                  <div>
+                    <label
+                      class="demo-controls__label"
+                      for="interaction-delay"
+                    >
+                      Delay (ms)
+                    </label>
+                    <NyxInput
+                      id="interaction-delay"
+                      :model-value="interactionDelayInput"
+                      @update:model-value="updateInteractionDelay"
+                      @blur="commitInteractionDelay"
+                      :type="NyxInputType.Number"
+                      :min="0"
+                      :max="10000"
+                      :step="100"
+                      :disabled="interactionType === NyxInteraction.None"
+                      :size="NyxSize.Small"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="demo-controls__label"
+                      for="interaction-duration"
+                    >
+                      Duration (ms)
+                    </label>
+                    <NyxInput
+                      id="interaction-duration"
+                      :model-value="interactionDurationInput"
+                      @update:model-value="updateInteractionDuration"
+                      @blur="commitInteractionDuration"
+                      :type="NyxInputType.Number"
+                      :min="0"
+                      :max="10000"
+                      :step="100"
+                      :disabled="interactionType === NyxInteraction.None"
+                      :size="NyxSize.Small"
+                    />
+                  </div>
+                </div>
+                <span class="demo-controls__help">
+                  Hover or touch the field after its entrance. Delay holds
+                  displaced particles after the pointer moves away; duration
+                  sets their transition and return time. Reduced motion disables
+                  pointer effects.
                 </span>
               </fieldset>
             </template>

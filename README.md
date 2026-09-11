@@ -142,6 +142,72 @@ manual trigger. Entrance time pauses in background tabs. Video playback and webc
 capture continue while waiting; the entrance reveals current media, not necessarily
 video timestamp zero. Manual mode does not defer loading or webcam permission.
 
+### Pointer interaction
+
+Use `interaction` to respond to a pointer over the canvas. Omitting it preserves
+the normal field with `NyxInteraction.None`.
+
+```ts
+import { NyxFission, NyxInteraction } from 'nyx-fission'
+
+const particles = new NyxFission({
+  source: './portrait.jpg',
+  querySelector: '#particles-canvas',
+  interaction: {
+    type: NyxInteraction.Attract,
+    radius: 100, // CSS pixels around the pointer
+    strength: 1, // 0 = no displacement, 1 = full effect
+    delay: 200, // ms to hold old displacements after pointer movement
+    duration: 300, // ms to transition toward the effect and back to rest
+  },
+})
+```
+
+| Property | Default | Behavior |
+| -------- | ------- | -------- |
+| `interaction.type` | `NyxInteraction.None` | Select a pointer effect |
+| `interaction.radius` | `100` | Affected screen radius, from `1` through `1000` CSS pixels |
+| `interaction.strength` | `1` | Displacement amount, from `0` (none) through `1` (full effect) |
+| `interaction.delay` | `0` | Hold displaced particles before returning after pointer movement or exit, in milliseconds |
+| `interaction.duration` | `300` | Per-particle transition and return time, in milliseconds |
+
+| Type | Effect |
+| ---- | ------ |
+| `None` | No pointer effect or pointer listeners |
+| `Attract` | Draw nearby particles toward the pointer across the image |
+| `Repel` | Move nearby particles away from the pointer across the image |
+| `Push` | Move nearby particles away from the camera in depth |
+| `Pull` | Move nearby particles toward the camera in depth |
+
+`radius` describes an area, not a particle count or particle size. Its soft falloff
+keeps the boundary smooth, and its screen measurement stays consistent across
+canvas sizes, CSS scaling, device pixel ratios, and signed particle depths.
+The number of affected particles depends on the visible field's density.
+`strength` scales attraction/repulsion across the image and push/pull distance in
+depth without changing the radius or timings. It accepts finite values from `0`
+through `1`; `0` disables pointer displacement.
+Repel uses its full radial displacement at `1`. Attract, Push, and Pull offer a
+stronger upper range: `0.5` gives a moderate effect, and `1` doubles that
+displacement. Attraction stops at the pointer; Push/Pull are bounded to keep
+particles in front of the camera.
+
+Timings accept finite nonnegative numbers with a finite sum. Each particle has its
+own transition: newly affected particles move toward the effect over `duration`.
+When the pointer moves away, the old particles hold their displacement for
+`delay`, then return over `duration`, even while other particles respond to the
+new pointer position. For example, `delay: 500, duration: 300` holds the old effect
+for 500 ms, then returns those particles over 300 ms. This also applies when the
+pointer leaves the canvas. Returning to a particle interrupts its return smoothly.
+`duration: 0` makes transitions immediate but still preserves the return delay.
+Mouse and pen hover are supported; touch starts on contact and ends
+on release or cancellation. Native scrolling and gestures remain available.
+
+Interaction is applied after the entrance completes, using the current pointer
+state. Replaying an entrance temporarily suppresses it. With reduced motion,
+pointer effects are disabled. Window blur and document visibility changes clear
+the pointer state. Destruction removes all listeners. Settings are copied at
+construction; destroy and recreate the instance to change them.
+
 ## Events and lifecycle
 
 Use `ready` as a promise or subscribe to lifecycle events. `on` and `off` use the same listener reference.
@@ -203,10 +269,11 @@ pnpm dev
 
 Open the printed local URL. The demo uses explicit canvas mounting, and its deterministic same-origin WebM fixture loops automatically from the beginning. The local SVG and video controls work without a third-party request. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
 
-The playground uses Basic, LumaKey, and Entrance tabs. Switching tabs preserves
+The playground uses Basic, LumaKey, Entrance, and Interaction tabs. Switching tabs preserves
 configuration and playback. Entrance controls select a preset, automatic or manual start, duration, and
 delay. Play/Replay reuses the current media instance. Configuration edits recreate
 the playground and update the copyable example; the decorative hero stays independent.
+Interaction controls select the pointer effect, radius, strength, delay, and duration.
 
 To build the demo separately:
 

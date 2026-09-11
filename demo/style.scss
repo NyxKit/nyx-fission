@@ -430,6 +430,10 @@ p {
   border-top: 1px solid var(--demo-line);
   min-width: 0;
 
+  &__tabs > nav {
+    overflow-x: auto;
+  }
+
   &__group--entrance {
     display: grid;
     gap: 10px;

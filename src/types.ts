@@ -54,6 +54,27 @@ export interface EntranceEvent {
   animated: boolean
 }
 
+export enum NyxInteraction {
+  None = 'none',
+  Attract = 'attract',
+  Repel = 'repel',
+  Push = 'push',
+  Pull = 'pull',
+}
+
+export interface InteractionConfig {
+  /** Pointer effect. Default: NyxInteraction.None. */
+  type?: NyxInteraction
+  /** Affected radius in CSS pixels, from 1 through 1000. Default: 100. */
+  radius?: number
+  /** Displacement strength from 0 (none) through 1 (full effect). Default: 1. */
+  strength?: number
+  /** Hold before displaced particles return after pointer movement or exit, in milliseconds. Default: 0. */
+  delay?: number
+  /** Transition time toward the effect and back to rest, in milliseconds. Default: 300. */
+  duration?: number
+}
+
 export interface NyxFissionConfig {
   source?: string
   type?: MediaType
@@ -62,6 +83,7 @@ export interface NyxFissionConfig {
   depth?: number
   lumaKey?: LumaKeyConfig
   entrance?: EntranceConfig
+  interaction?: InteractionConfig
 }
 
 export enum NyxEvent {
