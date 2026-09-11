@@ -1,5 +1,14 @@
 # Demo styles
 
+NyxTabs groups the playground into Basic (source, theme, depth), LumaKey
+(filtering), and Entrance. Switching tabs preserves controls and the current
+media instance. NyxTabs uses its default appearance and interaction behavior.
+The Entrance fieldset controls `entrance.type`, `autoStart`, `duration`, and `delay`.
+Timing edits use the existing debounce and clamp to the demo's 0–10,000 ms range.
+Manual start displays “Ready, waiting to play”; Play/Replay calls `playEntrance()`
+on the current instance. Preset/configuration edits recreate only the playground
+and update its generated integration example. The hero remains independent.
+
 `main.ts` imports `style.scss`. Vite compiles it with Sass; the library itself does not depend on Sass at runtime.
 
 Use BEM names for demo-owned styles:

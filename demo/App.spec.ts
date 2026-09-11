@@ -3,6 +3,7 @@
 import { createApp, nextTick, type App as VueApp } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  EntranceAnimationType,
   LumaKeyMode,
   MediaType,
   NyxEvent,
@@ -15,6 +16,7 @@ interface MockInstance {
   config: NyxFissionConfig
   mount: ReturnType<typeof vi.fn>
   destroy: ReturnType<typeof vi.fn>
+  playEntrance: ReturnType<typeof vi.fn>
   markReady: () => void
   emit: (_event: NyxEvent, _payload?: unknown) => void
 }
@@ -29,6 +31,10 @@ vi.mock('../src/index', async (importOriginal) => {
       readonly ready: Promise<void>
       readonly mount = vi.fn()
       readonly destroy = vi.fn(() => this.emit(actual.NyxEvent.Destroy))
+      readonly playEntrance = vi.fn(async () => {
+        this.emit(actual.NyxEvent.EntranceStart, { type: this.config.entrance?.type, animated: true })
+        this.emit(actual.NyxEvent.EntranceComplete, { type: this.config.entrance?.type, animated: true })
+      })
       private resolveReady!: () => void
       private listeners = new Map<string, (_payload: unknown) => void>()
 
@@ -61,7 +67,9 @@ vi.mock('../src/index', async (importOriginal) => {
 // Keep the app's bindings and events real while replacing the UI kit's rendering.
 vi.mock('nyx-kit/components', async () => {
   const { defineComponent, h } = await import('vue')
+  const { NyxTabs } = await vi.importActual<typeof import('nyx-kit/components')>('nyx-kit/components')
   return {
+    NyxTabs,
     NyxButton: defineComponent({
       setup:
         (_props, { slots }) =>
@@ -118,6 +126,7 @@ async function mountDemo(reducedMotion = false) {
   host = document.createElement('div')
   document.body.append(host)
   app = createApp(App)
+  app.provide('libEnv', {})
   app.mount(host)
   await nextTick()
   await nextTick()
@@ -189,21 +198,42 @@ describe('demo application', () => {
     expect(instanceFor('particles-canvas')).toBeDefined()
   })
 
-  it('renders labeled depth and luma controls inside the appearance fieldset', async () => {
+  it('groups basic and luma controls in their respective tabs', async () => {
     await mountDemo()
     const group = host.querySelector('#depth-control')?.closest('fieldset')
     expect(group?.querySelector('legend')?.textContent).toBe('Appearance')
+    expect(group?.closest('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toContain('Basic')
+    const luma = host.querySelector('#luma-key-mode')?.closest('fieldset')
+    expect(luma?.querySelector('legend')?.textContent).toBe('LumaKey')
     for (const id of [
-      'depth-control',
       'luma-key-mode',
       'luma-key-threshold',
       'luma-key-coherence',
     ]) {
-      expect(group?.querySelector(`#${id}`)).not.toBeNull()
+      expect(luma?.querySelector(`#${id}`)).not.toBeNull()
       expect(
-        group?.querySelector(`label[for="${id}"]`)?.textContent?.trim(),
+        luma?.querySelector(`label[for="${id}"]`)?.textContent?.trim(),
       ).toBeTruthy()
     }
+  })
+
+  it('switches NyxTabs without replacing media or resetting edited settings', async () => {
+    await mountDemo()
+    const playground = instanceFor('particles-canvas')
+    expect([...host.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(['Basic', 'LumaKey', 'Entrance'])
+    await clickButton('Entrance')
+    expect(host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Entrance')
+    await clickButton('LumaKey')
+    await clickButton('Basic')
+    expect(playground.destroy).not.toHaveBeenCalled()
+    expect(mocks.instances).toHaveLength(2)
+    await changeInput('depth-control', '0.6')
+    await vi.advanceTimersByTimeAsync(250)
+    const edited = instanceFor('particles-canvas')
+    await clickButton('Entrance')
+    await clickButton('Basic')
+    expect(edited.destroy).not.toHaveBeenCalled()
+    expect(host.querySelector<HTMLInputElement>('#depth-control')?.value).toBe('0.6')
   })
 
   it('shows loading, readiness, and errors from the playground', async () => {
@@ -308,6 +338,50 @@ describe('demo application', () => {
     const config = instanceFor('particles-canvas').config
     expect(config.type).toBe(MediaType.Usermedia)
     expect(config.source).toBeUndefined()
+  })
+
+  it('configures a manual entrance, updates the example, and replays without recreating media', async () => {
+    await mountDemo()
+    const hero = instanceFor('hero-canvas')
+    for (const [id, value] of [['entrance-type', EntranceAnimationType.Depth], ['entrance-trigger', 'manual']]) {
+      const select = host.querySelector<HTMLSelectElement>(`#${id}`)!
+      select.value = value
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+      await nextTick()
+    }
+    await changeInput('entrance-duration', '1400')
+    await changeInput('entrance-delay', '250')
+    await vi.advanceTimersByTimeAsync(250)
+    const playground = instanceFor('particles-canvas')
+    expect(playground.config.entrance).toEqual({ type: EntranceAnimationType.Depth, autoStart: false, duration: 1400, delay: 250 })
+    playground.markReady()
+    await nextTick()
+    expect(host.querySelector('#playground-title')?.textContent).toContain('Ready, waiting to play')
+    expect(host.querySelector('pre code')?.textContent).toContain('await particles.playEntrance()')
+    expect(host.querySelector('pre code')?.textContent).toContain('duration: 1400, delay: 250')
+    await clickButton('Play entrance')
+    await clickButton('Replay entrance')
+    expect(playground.playEntrance).toHaveBeenCalledTimes(2)
+    expect(playground.destroy).not.toHaveBeenCalled()
+    expect(hero.destroy).not.toHaveBeenCalled()
+  })
+
+  it('shows automatic delay and playback states from entrance events', async () => {
+    await mountDemo()
+    const select = host.querySelector<HTMLSelectElement>('#entrance-type')!
+    select.value = EntranceAnimationType.Gather
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    const playground = instanceFor('particles-canvas')
+    playground.markReady()
+    await nextTick()
+    expect(host.querySelector('#playground-title')?.textContent).toContain('Entrance scheduled')
+    playground.emit(NyxEvent.EntranceStart, { animated: true })
+    await nextTick()
+    expect(host.querySelector('#playground-title')?.textContent).toContain('Playing entrance')
+    playground.emit(NyxEvent.EntranceComplete, { animated: false })
+    await nextTick()
+    expect(host.querySelector('#playground-title')?.textContent?.trim()).toBe('Live')
   })
 
   it('reports unavailable webcam access in an insecure context', async () => {

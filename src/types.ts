@@ -27,6 +27,33 @@ export interface LumaKeyConfig {
 
 export type ResolvedLumaKeyConfig = Required<LumaKeyConfig>
 
+export enum EntranceAnimationType {
+  None = 'none',
+  Gather = 'gather',
+  Depth = 'depth',
+  Fade = 'fade',
+  Vortex = 'vortex',
+  ScanLeftToRight = 'scan-left-to-right',
+  ScanRightToLeft = 'scan-right-to-left',
+  ScanTopToBottom = 'scan-top-to-bottom',
+  ScanBottomToTop = 'scan-bottom-to-top',
+  Scatter = 'scatter',
+}
+
+export interface EntranceConfig {
+  type?: EntranceAnimationType
+  autoStart?: boolean
+  /** Duration in milliseconds, including particle staggering. Default: 1000. */
+  duration?: number
+  /** Delay in milliseconds before revealing the particles. Default: 0. */
+  delay?: number
+}
+
+export interface EntranceEvent {
+  type: EntranceAnimationType
+  animated: boolean
+}
+
 export interface NyxFissionConfig {
   source?: string
   type?: MediaType
@@ -34,11 +61,14 @@ export interface NyxFissionConfig {
   querySelector?: string
   depth?: number
   lumaKey?: LumaKeyConfig
+  entrance?: EntranceConfig
 }
 
 export enum NyxEvent {
   Loading = 'loading',
   Ready = 'ready',
+  EntranceStart = 'entrance-start',
+  EntranceComplete = 'entrance-complete',
   Error = 'error',
   Destroy = 'destroy',
 }
@@ -59,6 +89,8 @@ export interface NyxErrorEvent {
 export type NyxEventMap = {
   [NyxEvent.Loading]: void
   [NyxEvent.Ready]: void
+  [NyxEvent.EntranceStart]: EntranceEvent
+  [NyxEvent.EntranceComplete]: EntranceEvent
   [NyxEvent.Error]: NyxErrorEvent
   [NyxEvent.Destroy]: void
 }

@@ -1,10 +1,19 @@
 <script setup lang="ts">
 /* global URL, document, HTMLCanvasElement, window, navigator, HTMLInputElement */
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { NyxButton, NyxInput, NyxSelect } from 'nyx-kit/components'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
+import { NyxButton, NyxInput, NyxSelect, NyxTabs } from 'nyx-kit/components'
 import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
 import {
+  EntranceAnimationType,
   LumaKeyMode,
   MediaType,
   NyxEvent,
@@ -33,6 +42,9 @@ type Status =
   | 'Waiting for a source'
   | 'Loading source'
   | 'Live'
+  | 'Ready, waiting to play'
+  | 'Entrance scheduled'
+  | 'Playing entrance'
   | 'Needs attention'
   | 'Stopped'
   | 'Webcam unavailable'
@@ -47,6 +59,37 @@ const depth = ref(0.35)
 const lumaKey = ref<LumaKeyMode>(LumaKeyMode.None)
 const lumaKeyThreshold = ref(0.1)
 const lumaKeyCoherence = ref(0)
+const configTab = ref('Basic')
+const configTabs = ['Basic', 'LumaKey', 'Entrance']
+const entranceType = ref(EntranceAnimationType.None)
+const entranceTrigger = ref('automatic')
+const entranceDuration = ref(1000)
+const entranceDelay = ref(0)
+const entranceBusy = ref(false)
+const entrancePlayed = ref(false)
+const playgroundReady = ref(false)
+const entranceConfig = computed(() => ({
+  type: entranceType.value,
+  autoStart: entranceTrigger.value === 'automatic',
+  duration: entranceDuration.value,
+  delay: entranceDelay.value,
+}))
+const commitTiming = (input: string | number, current: number): number => {
+  const value = Number(input)
+  return String(input).trim() && Number.isFinite(value)
+    ? Math.min(10000, Math.max(0, value))
+    : current
+}
+const {
+  input: entranceDurationInput,
+  update: updateEntranceDuration,
+  commit: commitEntranceDuration,
+} = useDebouncedNumberInput(entranceDuration, commitTiming)
+const {
+  input: entranceDelayInput,
+  update: updateEntranceDelay,
+  commit: commitEntranceDelay,
+} = useDebouncedNumberInput(entranceDelay, commitTiming)
 const isUpdating = ref(false)
 const {
   input: depthInput,
@@ -65,7 +108,7 @@ const {
 } = useDebouncedNumberInput(lumaKeyCoherence, commitUnitInterval)
 let disposeHero: (() => void) | null = null
 const canvas = ref<HTMLCanvasElement | null>(null)
-const instance = ref<NyxFission | null>(null)
+const instance = shallowRef<NyxFission | null>(null)
 const heroCanvas = ref<HTMLCanvasElement | null>(null)
 const heroInstance = ref<NyxFission | null>(null)
 const status = ref<Status>('Waiting for a source')
@@ -73,11 +116,17 @@ const statusTheme = ref(NyxTheme.Info)
 const statusDetail = ref('Choose a source, then mount the field.')
 const copyLabel = ref('Copy example')
 const quickstartCode = computed(() =>
-  buildQuickstart(sourceChoice.value, sourceUrl.value, depth.value, {
-    mode: lumaKey.value,
-    threshold: lumaKeyThreshold.value,
-    coherence: lumaKeyCoherence.value,
-  }),
+  buildQuickstart(
+    sourceChoice.value,
+    sourceUrl.value,
+    depth.value,
+    {
+      mode: lumaKey.value,
+      threshold: lumaKeyThreshold.value,
+      coherence: lumaKeyCoherence.value,
+    },
+    entranceConfig.value,
+  ),
 )
 
 const sourceOptions = [
@@ -95,6 +144,40 @@ const lumaKeyOptions = [
   { value: LumaKeyMode.Dark, label: 'Discard dark particles' },
   { value: LumaKeyMode.Light, label: 'Discard light particles' },
 ]
+const entranceOptions = [
+  { value: EntranceAnimationType.None, label: 'None' },
+  { value: EntranceAnimationType.Gather, label: 'Gather · outside inward' },
+  {
+    value: EntranceAnimationType.Depth,
+    label: 'Depth · distant point forward',
+  },
+  { value: EntranceAnimationType.Fade, label: 'Fade · reveal in place' },
+  { value: EntranceAnimationType.Vortex, label: 'Vortex · spiral inward' },
+  {
+    value: EntranceAnimationType.ScanLeftToRight,
+    label: 'Scan · left to right',
+  },
+  {
+    value: EntranceAnimationType.ScanRightToLeft,
+    label: 'Scan · right to left',
+  },
+  {
+    value: EntranceAnimationType.ScanTopToBottom,
+    label: 'Scan · top to bottom',
+  },
+  {
+    value: EntranceAnimationType.ScanBottomToTop,
+    label: 'Scan · bottom to top',
+  },
+  {
+    value: EntranceAnimationType.Scatter,
+    label: 'Scatter · assemble a dust cloud',
+  },
+]
+const entranceTriggerOptions = [
+  { value: 'automatic', label: 'Automatically on load' },
+  { value: 'manual', label: 'Wait for Play' },
+]
 const setStatus = (nextStatus: Status, detail: string, nextTheme: NyxTheme) => {
   status.value = nextStatus
   statusTheme.value = nextTheme
@@ -103,6 +186,8 @@ const setStatus = (nextStatus: Status, detail: string, nextTheme: NyxTheme) => {
 
 const handleError = ({ error, stage }: NyxErrorEvent) => {
   isUpdating.value = false
+  playgroundReady.value = false
+  entranceBusy.value = false
   setStatus('Needs attention', `${stage}: ${error.message}`, NyxTheme.Danger)
 }
 
@@ -146,6 +231,9 @@ const createHeroInstance = () => {
 const restartPlayground = (): void => {
   isUpdating.value = true
   destroyInstance()
+  playgroundReady.value = false
+  entranceBusy.value = false
+  entrancePlayed.value = false
   if (
     sourceChoice.value === SourceChoice.Usermedia &&
     !window.isSecureContext
@@ -165,6 +253,7 @@ const restartPlayground = (): void => {
       type: sourceChoice.value,
       theme: theme.value,
       depth: normalizeDemoDepth(depth.value),
+      entrance: entranceConfig.value,
       lumaKey: {
         mode: lumaKey.value,
         threshold: lumaKeyThreshold.value,
@@ -185,9 +274,47 @@ const restartPlayground = (): void => {
     )
     nextInstance.on(NyxEvent.Ready, () => {
       isUpdating.value = false
+      playgroundReady.value = true
+      if (!config.entrance.autoStart) {
+        setStatus(
+          'Ready, waiting to play',
+          'Media is ready. Press Play entrance to reveal the particles.',
+          NyxTheme.Info,
+        )
+        return
+      }
+      if (config.entrance.type !== EntranceAnimationType.None) {
+        entranceBusy.value = true
+        setStatus(
+          'Entrance scheduled',
+          'The particles will appear after the configured delay.',
+          NyxTheme.Info,
+        )
+        return
+      }
+      entrancePlayed.value = true
       setStatus(
         'Live',
         `${sourceChoice.value} is mounted with ${theme.value} at depth ${depth.value.toFixed(2)}.`,
+        NyxTheme.Success,
+      )
+    })
+    nextInstance.on(NyxEvent.EntranceStart, () => {
+      entranceBusy.value = true
+      setStatus(
+        'Playing entrance',
+        'The particle field is forming.',
+        NyxTheme.Primary,
+      )
+    })
+    nextInstance.on(NyxEvent.EntranceComplete, ({ animated }) => {
+      entranceBusy.value = false
+      entrancePlayed.value = true
+      setStatus(
+        'Live',
+        animated
+          ? 'Entrance complete. Press Replay entrance to watch it again.'
+          : 'The particle field is visible. Motion preferences are respected.',
         NyxTheme.Success,
       )
     })
@@ -218,6 +345,27 @@ const restartPlayground = (): void => {
       `Could not start NyxFission: ${message}`,
       NyxTheme.Danger,
     )
+  }
+}
+
+const playEntrance = async () => {
+  const current = instance.value
+  if (!current || !playgroundReady.value || entranceBusy.value) return
+  entranceBusy.value = true
+  setStatus('Entrance scheduled', 'Preparing the entrance.', NyxTheme.Info)
+  try {
+    canvas.value?.scrollIntoView?.({ block: 'center', behavior: 'instant' })
+    await current.playEntrance()
+    if (instance.value !== current) return
+    entranceBusy.value = false
+    entrancePlayed.value = true
+    setStatus('Live', 'The particle field is visible.', NyxTheme.Success)
+  } catch (error) {
+    if (instance.value === current)
+      handleError({
+        error: error as Error,
+        stage: 'rendering' as NyxErrorEvent['stage'],
+      })
   }
 }
 
@@ -263,6 +411,20 @@ const labelNyxControls = () => {
     control.id = 'theme-select-control'
     control.setAttribute('aria-label', 'Particle theme')
   }
+  for (const [id, label] of [
+    ['entrance-type', 'Entrance animation'],
+    ['entrance-trigger', 'Start entrance'],
+  ]) {
+    const select = document.getElementById(id)
+    const input = select
+      ?.closest('.nyx-select')
+      ?.querySelector<HTMLInputElement>('.nyx-select__input')
+    if (input) {
+      input.id = `${id}-control`
+      input.setAttribute('aria-label', label)
+      select?.setAttribute('aria-hidden', 'true')
+    }
+  }
 }
 
 onMounted(async () => {
@@ -271,9 +433,22 @@ onMounted(async () => {
   createHeroInstance()
   restartPlayground()
 })
-watch([theme, depth, lumaKey, lumaKeyThreshold, lumaKeyCoherence], () => {
-  restartPlayground()
-})
+watch(
+  [
+    theme,
+    depth,
+    lumaKey,
+    lumaKeyThreshold,
+    lumaKeyCoherence,
+    entranceType,
+    entranceTrigger,
+    entranceDuration,
+    entranceDelay,
+  ],
+  () => {
+    restartPlayground()
+  },
+)
 onBeforeUnmount(() => {
   disposeHero?.()
   disposeHero = null
@@ -323,7 +498,7 @@ onBeforeUnmount(() => {
       id="top"
     >
       <div class="hero__copy">
-        <p class="eyebrow">NYX / FISSION 0.1</p>
+        <p class="eyebrow">NYX / FISSION 1.1.0</p>
         <h1 class="hero__title">
           Media goes in.
           <br />
@@ -409,159 +584,274 @@ onBeforeUnmount(() => {
           class="demo-controls"
           aria-label="Demo controls"
         >
-          <fieldset class="demo-controls__group">
-            <legend class="demo-controls__legend">Source</legend>
-            <div class="demo-controls__actions">
-              <NyxButton
-                :variant="
-                  sourceChoice === SourceChoice.Image
-                    ? NyxVariant.Filled
-                    : NyxVariant.Outline
-                "
-                :theme="NyxTheme.Primary"
-                :size="NyxSize.Small"
-                @click="chooseSource(SourceChoice.Image)"
+          <NyxTabs
+            v-model="configTab"
+            :tabs="configTabs"
+            :theme="NyxTheme.Primary"
+            :size="NyxSize.Small"
+            class="demo-controls__tabs"
+          >
+            <template #tab-Basic>
+              <fieldset class="demo-controls__group">
+                <legend class="demo-controls__legend">Source</legend>
+                <div class="demo-controls__actions">
+                  <NyxButton
+                    :variant="
+                      sourceChoice === SourceChoice.Image
+                        ? NyxVariant.Filled
+                        : NyxVariant.Outline
+                    "
+                    :theme="NyxTheme.Primary"
+                    :size="NyxSize.Small"
+                    @click="chooseSource(SourceChoice.Image)"
+                  >
+                    Image
+                  </NyxButton>
+                  <NyxButton
+                    :variant="
+                      sourceChoice === SourceChoice.Video
+                        ? NyxVariant.Filled
+                        : NyxVariant.Outline
+                    "
+                    :theme="NyxTheme.Primary"
+                    :size="NyxSize.Small"
+                    @click="chooseSource(SourceChoice.Video)"
+                  >
+                    Video
+                  </NyxButton>
+                  <NyxButton
+                    :variant="NyxVariant.Outline"
+                    :theme="NyxTheme.Warning"
+                    :size="NyxSize.Small"
+                    @click="startWebcam"
+                  >
+                    Enable webcam
+                  </NyxButton>
+                </div>
+                <label
+                  class="demo-controls__label"
+                  for="source-url"
+                >
+                  Media URL
+                </label>
+                <div class="demo-controls__url">
+                  <NyxInput
+                    id="source-url"
+                    v-model="sourceUrl"
+                    :type="NyxInputType.Url"
+                    :size="NyxSize.Small"
+                  />
+                  <NyxButton
+                    :theme="NyxTheme.Secondary"
+                    :size="NyxSize.Small"
+                    @click="restartPlayground"
+                  >
+                    Apply
+                  </NyxButton>
+                </div>
+                <span
+                  id="url-help"
+                  class="demo-controls__help"
+                >
+                  Relative URLs resolve from
+                  <code class="inline-code">document.baseURI</code>
+                  .
+                </span>
+              </fieldset>
+              <fieldset class="demo-controls__group">
+                <legend class="demo-controls__legend">Appearance</legend>
+                <label
+                  class="demo-controls__label"
+                  for="theme-select-control"
+                >
+                  Particle theme
+                </label>
+                <NyxSelect
+                  id="theme-select"
+                  v-model="theme"
+                  :options="themeOptions"
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                />
+                <label
+                  class="demo-controls__label"
+                  for="depth-control"
+                >
+                  Particle depth: {{ depth.toFixed(2) }}
+                </label>
+                <NyxInput
+                  id="depth-control"
+                  :model-value="depthInput"
+                  @update:model-value="updateDepthInput"
+                  @blur="commitDepth"
+                  :type="NyxInputType.Number"
+                  :min="-1"
+                  :max="1"
+                  :step="0.05"
+                  :size="NyxSize.Small"
+                />
+                <span class="demo-controls__help">
+                  Signed depth maps luminance toward or away from the camera.
+                </span>
+              </fieldset>
+            </template>
+            <template #tab-LumaKey>
+              <fieldset class="demo-controls__group">
+                <legend class="demo-controls__legend">LumaKey</legend>
+                <label
+                  class="demo-controls__label"
+                  for="luma-key-mode"
+                >
+                  Luma key
+                </label>
+                <NyxSelect
+                  id="luma-key-mode"
+                  v-model="lumaKey"
+                  :options="lumaKeyOptions"
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                />
+                <label
+                  class="demo-controls__label"
+                  for="luma-key-threshold"
+                >
+                  Luma threshold: {{ lumaKeyThreshold.toFixed(2) }}
+                </label>
+                <NyxInput
+                  id="luma-key-threshold"
+                  :model-value="lumaKeyThresholdInput"
+                  @update:model-value="updateLumaKeyThresholdInput"
+                  @blur="commitLumaKeyThreshold"
+                  :type="NyxInputType.Number"
+                  :min="0"
+                  :max="1"
+                  :step="0.05"
+                  :size="NyxSize.Small"
+                />
+                <label
+                  class="demo-controls__label"
+                  for="luma-key-coherence"
+                >
+                  Luma coherence: {{ lumaKeyCoherence.toFixed(2) }}
+                </label>
+                <NyxInput
+                  id="luma-key-coherence"
+                  :model-value="lumaKeyCoherenceInput"
+                  @update:model-value="updateLumaKeyCoherenceInput"
+                  @blur="commitLumaKeyCoherence"
+                  :type="NyxInputType.Number"
+                  :min="0"
+                  :max="1"
+                  :step="0.05"
+                  :size="NyxSize.Small"
+                />
+                <span class="demo-controls__help">
+                  Coherence keeps particles with local support in the sampled
+                  3x3 grid.
+                </span>
+              </fieldset>
+            </template>
+            <template #tab-Entrance>
+              <fieldset
+                class="demo-controls__group demo-controls__group--entrance"
               >
-                Image
-              </NyxButton>
-              <NyxButton
-                :variant="
-                  sourceChoice === SourceChoice.Video
-                    ? NyxVariant.Filled
-                    : NyxVariant.Outline
-                "
-                :theme="NyxTheme.Primary"
-                :size="NyxSize.Small"
-                @click="chooseSource(SourceChoice.Video)"
-              >
-                Video
-              </NyxButton>
-              <NyxButton
-                :variant="NyxVariant.Outline"
-                :theme="NyxTheme.Warning"
-                :size="NyxSize.Small"
-                @click="startWebcam"
-              >
-                Enable webcam
-              </NyxButton>
-            </div>
-            <label
-              class="demo-controls__label"
-              for="source-url"
-            >
-              Media URL
-            </label>
-            <div class="demo-controls__url">
-              <NyxInput
-                id="source-url"
-                v-model="sourceUrl"
-                :type="NyxInputType.Url"
-                :size="NyxSize.Small"
-              />
-              <NyxButton
-                :theme="NyxTheme.Secondary"
-                :size="NyxSize.Small"
-                @click="restartPlayground"
-              >
-                Apply
-              </NyxButton>
-            </div>
-            <span
-              id="url-help"
-              class="demo-controls__help"
-            >
-              Relative URLs resolve from
-              <code class="inline-code">document.baseURI</code>
-              .
-            </span>
-          </fieldset>
-          <fieldset class="demo-controls__group">
-            <legend class="demo-controls__legend">Appearance</legend>
-            <label
-              class="demo-controls__label"
-              for="theme-select-control"
-            >
-              Particle theme
-            </label>
-            <NyxSelect
-              id="theme-select"
-              v-model="theme"
-              :options="themeOptions"
-              :size="NyxSize.Small"
-              :theme="NyxTheme.Primary"
-            />
-            <label
-              class="demo-controls__label"
-              for="depth-control"
-            >
-              Particle depth: {{ depth.toFixed(2) }}
-            </label>
-            <NyxInput
-              id="depth-control"
-              :model-value="depthInput"
-              @update:model-value="updateDepthInput"
-              @blur="commitDepth"
-              :type="NyxInputType.Number"
-              :min="-1"
-              :max="1"
-              :step="0.05"
-              :size="NyxSize.Small"
-            />
-            <span class="demo-controls__help">
-              Signed depth maps luminance toward or away from the camera.
-            </span>
-            <label
-              class="demo-controls__label"
-              for="luma-key-mode"
-            >
-              Luma key
-            </label>
-            <NyxSelect
-              id="luma-key-mode"
-              v-model="lumaKey"
-              :options="lumaKeyOptions"
-              :size="NyxSize.Small"
-              :theme="NyxTheme.Primary"
-            />
-            <label
-              class="demo-controls__label"
-              for="luma-key-threshold"
-            >
-              Luma threshold: {{ lumaKeyThreshold.toFixed(2) }}
-            </label>
-            <NyxInput
-              id="luma-key-threshold"
-              :model-value="lumaKeyThresholdInput"
-              @update:model-value="updateLumaKeyThresholdInput"
-              @blur="commitLumaKeyThreshold"
-              :type="NyxInputType.Number"
-              :min="0"
-              :max="1"
-              :step="0.05"
-              :size="NyxSize.Small"
-            />
-            <label
-              class="demo-controls__label"
-              for="luma-key-coherence"
-            >
-              Luma coherence: {{ lumaKeyCoherence.toFixed(2) }}
-            </label>
-            <NyxInput
-              id="luma-key-coherence"
-              :model-value="lumaKeyCoherenceInput"
-              @update:model-value="updateLumaKeyCoherenceInput"
-              @blur="commitLumaKeyCoherence"
-              :type="NyxInputType.Number"
-              :min="0"
-              :max="1"
-              :step="0.05"
-              :size="NyxSize.Small"
-            />
-            <span class="demo-controls__help">
-              Coherence keeps particles with local support in the sampled 3x3
-              grid.
-            </span>
-          </fieldset>
+                <legend class="demo-controls__legend">Entrance</legend>
+                <label
+                  class="demo-controls__label"
+                  for="entrance-type-control"
+                >
+                  Entrance animation
+                </label>
+                <NyxSelect
+                  id="entrance-type"
+                  v-model="entranceType"
+                  :options="entranceOptions"
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                />
+                <label
+                  class="demo-controls__label"
+                  for="entrance-trigger-control"
+                >
+                  Start entrance
+                </label>
+                <NyxSelect
+                  id="entrance-trigger"
+                  v-model="entranceTrigger"
+                  :options="entranceTriggerOptions"
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                />
+                <div class="demo-controls__timing">
+                  <div>
+                    <label
+                      class="demo-controls__label"
+                      for="entrance-duration"
+                    >
+                      Duration (ms)
+                    </label>
+                    <NyxInput
+                      id="entrance-duration"
+                      :model-value="entranceDurationInput"
+                      @update:model-value="updateEntranceDuration"
+                      @blur="commitEntranceDuration"
+                      :type="NyxInputType.Number"
+                      :min="0"
+                      :max="10000"
+                      :step="100"
+                      :disabled="entranceType === EntranceAnimationType.None"
+                      :size="NyxSize.Small"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="demo-controls__label"
+                      for="entrance-delay"
+                    >
+                      Delay (ms)
+                    </label>
+                    <NyxInput
+                      id="entrance-delay"
+                      :model-value="entranceDelayInput"
+                      @update:model-value="updateEntranceDelay"
+                      @blur="commitEntranceDelay"
+                      :type="NyxInputType.Number"
+                      :min="0"
+                      :max="10000"
+                      :step="100"
+                      :disabled="entranceType === EntranceAnimationType.None"
+                      :size="NyxSize.Small"
+                    />
+                  </div>
+                </div>
+                <NyxButton
+                  :size="NyxSize.Small"
+                  :theme="NyxTheme.Primary"
+                  :disabled="!playgroundReady || entranceBusy"
+                  @click="playEntrance"
+                >
+                  {{
+                    entranceBusy
+                      ? 'Entrance in progress'
+                      : entrancePlayed
+                        ? 'Replay entrance'
+                        : 'Play entrance'
+                  }}
+                </NyxButton>
+                <span
+                  class="demo-controls__help"
+                  aria-live="polite"
+                >
+                  {{
+                    entranceTrigger === 'manual'
+                      ? 'Particles stay hidden until you press Play. Media loads immediately.'
+                      : 'The entrance runs when the media is ready.'
+                  }}
+                  Reduced motion reveals the field instantly.
+                </span>
+              </fieldset>
+            </template>
+          </NyxTabs>
         </aside>
       </div>
     </section>

@@ -2,7 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NyxError } from '../errors'
-import { LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type ResolvedLumaKeyConfig } from '../types'
+import { EntranceAnimationType, LumaKeyMode, MediaType, NyxErrorStage, NyxEvent, ThemeName, type ResolvedLumaKeyConfig } from '../types'
+import type { EntranceController } from '../entrance'
 
 const mocks = vi.hoisted(() => ({
   loadMediaSource: vi.fn(),
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateParticleField: vi.fn(),
   resolveTheme: vi.fn(() => [[1, 1, 1]]),
   resolveMediaType: vi.fn((type: string | undefined) => type ?? 'image'),
-  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: ResolvedLumaKeyConfig; errorCallback?: (_error: unknown) => void }>,
+  runtimeInstances: [] as Array<{ setField: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; depth: number; lumaKey: ResolvedLumaKeyConfig; entrance?: EntranceController; errorCallback?: (_error: unknown) => void }>,
 }))
 
 const FLOAT32_SAFE_DEPTH = 1_000_000
@@ -44,11 +45,13 @@ vi.mock('../runtime', () => ({
     depth: number
 
     lumaKey: ResolvedLumaKeyConfig
+    entrance: EntranceController | undefined
 
-    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: (_error: unknown) => void) {
+    constructor(_canvas: HTMLCanvasElement, _field: unknown, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: (_error: unknown) => void, entrance?: EntranceController) {
       this.depth = typeof depth === 'number' ? depth : 0
       this.lumaKey = lumaKey
       this.errorCallback = errorCallback
+      this.entrance = entrance
       mocks.runtimeInstances.push(this)
     }
   },
@@ -94,6 +97,56 @@ describe('NyxFission orchestration', () => {
     )
     expect(mocks.resolveMediaType).not.toHaveBeenCalled()
     expect(mocks.loadMediaSource).not.toHaveBeenCalled()
+  })
+
+  it('joins a queued manual trigger with automatic startup after Ready', async () => {
+    const particles = new NyxFission({ source: './portrait.jpg', entrance: { type: EntranceAnimationType.Fade, duration: 0 } })
+    const events: string[] = []
+    particles.on(NyxEvent.Ready, () => events.push('ready'))
+    particles.on(NyxEvent.EntranceStart, () => events.push('start'))
+    particles.on(NyxEvent.EntranceComplete, () => events.push('complete'))
+    const completion = particles.playEntrance()
+    particles.mount(canvas())
+    await particles.ready
+    expect(events).toEqual(['ready'])
+    expect(particles.playEntrance()).toBe(completion)
+    const entrance = mocks.runtimeInstances[0].entrance!
+    entrance.afterRender(entrance.advance(0))
+    await completion
+    expect(events).toEqual(['ready', 'start', 'complete'])
+    particles.destroy()
+  })
+
+  it('skips sampling while waiting and refreshes live media on reveal', async () => {
+    mocks.loadMediaSource.mockResolvedValueOnce({ kind: 'video', width: 2, height: 2, dispose: vi.fn() })
+    const particles = new NyxFission({ source: './portrait.mp4', entrance: { type: EntranceAnimationType.Gather, autoStart: false } })
+    particles.mount(canvas())
+    await particles.ready
+    const runtime = mocks.runtimeInstances[0]
+    const frame = runtime.start.mock.calls[0][0] as (_time: number, _force?: boolean) => void
+    frame(100)
+    frame(200)
+    expect(mocks.sample).toHaveBeenCalledOnce()
+    const completion = particles.playEntrance()
+    const token = runtime.entrance!.advance(1000)
+    frame(1000, true)
+    expect(mocks.sample).toHaveBeenCalledTimes(2)
+    runtime.entrance!.afterRender(token)
+    particles.destroy()
+    await expect(completion).rejects.toMatchObject({ code: 'DESTROYED' })
+    await expect(particles.playEntrance()).rejects.toMatchObject({ code: 'DESTROYED' })
+  })
+
+  it('rejects a queued entrance with the original source failure', async () => {
+    const failure = new NyxError('bad media', 'MEDIA_LOAD_FAILED', NyxErrorStage.Source)
+    mocks.loadMediaSource.mockRejectedValueOnce(failure)
+    const particles = new NyxFission({ source: './bad.jpg', entrance: { type: EntranceAnimationType.Depth } })
+    const completion = particles.playEntrance()
+    particles.mount(canvas())
+    await expect(particles.ready).rejects.toBe(failure)
+    await expect(completion).rejects.toBe(failure)
+    await expect(particles.playEntrance()).rejects.toBe(failure)
+    particles.destroy()
   })
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])('rejects non-finite depth %s', (depth) => {

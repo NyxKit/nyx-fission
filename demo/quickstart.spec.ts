@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { buildQuickstart, commitDemoDepth } from './quickstart'
-import { LumaKeyMode, type LumaKeyConfig } from '../src/index'
+import { EntranceAnimationType, LumaKeyMode, type LumaKeyConfig } from '../src/index'
 
 describe('buildQuickstart', () => {
+  it.each(Object.entries(EntranceAnimationType))('exports a working manual example for %s', (member, type) => {
+    const example = buildQuickstart('image', '/image.png', 0.35, undefined, { type, autoStart: false, duration: 1400, delay: 250 })
+    expect(example).toContain(`entrance: { type: EntranceAnimationType.${member}, autoStart: false, duration: 1400, delay: 250 }`)
+    expect(example).toContain('await particles.ready')
+    expect(example).toContain('await particles.playEntrance()')
+  })
   it.each([
     ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }'],
     ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }'],
