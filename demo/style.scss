@@ -299,6 +299,9 @@ p {
 
   &__preview {
     min-width: 0;
+    position: sticky;
+    top: 24px;
+    align-self: start;
   }
 
   &__updating {
@@ -327,6 +330,10 @@ p {
   }
 
   @media (max-width: 800px) {
+    &__preview {
+      position: static;
+    }
+
     &__layout {
       grid-template-columns: 1fr;
     }
@@ -424,6 +431,18 @@ p {
 
 .demo-controls {
   border-top: 1px solid var(--demo-line);
+  min-width: 0;
+
+  &__group--entrance {
+    display: grid;
+    gap: 10px;
+  }
+
+  &__timing {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
 
   &__help {
     display: block;

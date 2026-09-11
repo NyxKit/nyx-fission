@@ -14,14 +14,27 @@ import fragmentShader from './shaders/particles.frag.glsl?raw'
 import vertexShader from './shaders/particles.vert.glsl?raw'
 import { validateParticleDepth } from './depth'
 import { NyxError } from './errors'
-import { LumaKeyMode, NyxErrorStage, type ResolvedLumaKeyConfig } from './types'
+import type { EntranceController } from './entrance'
+import { EntranceAnimationType, LumaKeyMode, NyxErrorStage, type ResolvedLumaKeyConfig } from './types'
 import type { ParticleField } from './particles'
 
 const CAMERA_FOV = 50
 const CAMERA_GAP = 0.1
 const FIELD_HALF_HEIGHT = 0.5
+const ENTRANCE_SHADER_TYPES: Record<EntranceAnimationType, number> = {
+  [EntranceAnimationType.None]: 0,
+  [EntranceAnimationType.Gather]: 1,
+  [EntranceAnimationType.Depth]: 2,
+  [EntranceAnimationType.Fade]: 3,
+  [EntranceAnimationType.Vortex]: 4,
+  [EntranceAnimationType.ScanLeftToRight]: 5,
+  [EntranceAnimationType.Scatter]: 6,
+  [EntranceAnimationType.ScanRightToLeft]: 7,
+  [EntranceAnimationType.ScanTopToBottom]: 8,
+  [EntranceAnimationType.ScanBottomToTop]: 9,
+}
 
-export type FrameCallback = (_time: number) => void
+export type FrameCallback = (_time: number, _force?: boolean) => void
 type ErrorCallback = (_error: unknown) => void
 
 function canvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
@@ -68,13 +81,23 @@ export class ThreeRuntime {
   private readonly lumaKey: LumaKeyMode
   private readonly lumaKeyThreshold: number
   private readonly lumaKeyCoherence: number
+  private readonly entrance: EntranceController | undefined
+  private fieldRadius = 0.5
+  private fieldHalfWidth = 0.5
+  private fieldHalfHeight = 0.5
+  private fieldPositions: Float32Array | undefined
+  private normalCulling = true
+  private normalDepthWrite = true
+  private wasVisible = true
+  private lastEntranceToken: object | undefined
 
-  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: ErrorCallback) {
+  constructor(canvas: HTMLCanvasElement, initialField: ParticleField, depth: number, lumaKey: ResolvedLumaKeyConfig, errorCallback?: ErrorCallback, entrance?: EntranceController) {
     validateParticleDepth(depth, NyxErrorStage.Rendering)
     if (!Object.values(LumaKeyMode).includes(lumaKey.mode) || !Number.isFinite(lumaKey.threshold) || lumaKey.threshold < 0 || lumaKey.threshold > 1 || !Number.isFinite(lumaKey.coherence) || lumaKey.coherence < 0 || lumaKey.coherence > 1) {
       throw new NyxError('Invalid luma-key configuration', 'INVALID_CONFIG', NyxErrorStage.Rendering)
     }
     this.errorCallback = errorCallback
+    this.entrance = entrance
     this.depth = depth
     this.lumaKey = lumaKey.mode
     this.lumaKeyThreshold = lumaKey.threshold
@@ -91,9 +114,26 @@ export class ThreeRuntime {
       vertexShader,
       fragmentShader,
       transparent: true,
-      uniforms: { pointSize: { value: 3 }, depth: { value: depth }, lumaKeyMode: { value: this.lumaKey === LumaKeyMode.None ? 0 : this.lumaKey === LumaKeyMode.Dark ? 1 : 2 }, lumaKeyThreshold: { value: this.lumaKeyThreshold }, lumaKeyCoherence: { value: this.lumaKeyCoherence } },
+      uniforms: {
+        pointSize: { value: 3 },
+        depth: { value: depth },
+        lumaKeyMode: { value: this.lumaKey === LumaKeyMode.None ? 0 : this.lumaKey === LumaKeyMode.Dark ? 1 : 2 },
+        lumaKeyThreshold: { value: this.lumaKeyThreshold },
+        lumaKeyCoherence: { value: this.lumaKeyCoherence },
+        entranceType: { value: 0 },
+        entranceProgress: { value: 1 },
+        entranceRadius: { value: 1 },
+        entranceOriginZ: { value: -1 },
+        entranceFieldRadius: { value: 0.5 },
+        entranceHalfWidth: { value: 0.5 },
+        entranceHalfHeight: { value: 0.5 },
+      },
     })
     this.points = new Points(this.geometry, this.material)
+    this.normalCulling = this.points.frustumCulled
+    this.normalDepthWrite = this.material.depthWrite
+    this.wasVisible = entrance?.visible ?? true
+    this.points.visible = this.wasVisible
     this.scene.add(this.points)
     this.setField(initialField)
 
@@ -131,8 +171,10 @@ export class ThreeRuntime {
       })
       observer.observe(canvas)
       this.observer = observer
+      entrance?.connect(canvas.ownerDocument)
     } catch (cause) {
       observer?.disconnect()
+      entrance?.disconnect()
       this.geometry?.dispose()
       this.material?.dispose()
       this.renderer?.dispose()
@@ -148,6 +190,18 @@ export class ThreeRuntime {
     const points = this.points
     if (!geometry || !points) {
       throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
+    }
+    // A changed media aspect can produce a new grid with the same particle count.
+    if (this.fieldPositions !== field.positions) {
+      this.fieldPositions = field.positions
+      this.fieldRadius = 0
+      this.fieldHalfWidth = 0
+      this.fieldHalfHeight = 0
+      for (let i = 0; i < field.positions.length; i += 3) {
+        this.fieldRadius = Math.max(this.fieldRadius, Math.hypot(field.positions[i], field.positions[i + 1]))
+        this.fieldHalfWidth = Math.max(this.fieldHalfWidth, Math.abs(field.positions[i]))
+        this.fieldHalfHeight = Math.max(this.fieldHalfHeight, Math.abs(field.positions[i + 1]))
+      }
     }
     if (this.positionAttribute?.array.length === field.positions.length && this.colorAttribute?.array.length === field.colors.length && this.luminanceAttribute?.array.length === field.luminance.length && this.coherenceAttribute?.array.length === field.coherence.length) {
       this.positionAttribute.array.set(field.positions)
@@ -190,13 +244,21 @@ export class ThreeRuntime {
       if (this.disposed) return
       this.frameId = undefined
       try {
-        this.frameCallback?.(time)
+        const token = this.entrance?.advance(time)
+        if (this.disposed || !this.running) return
+        const visible = this.entrance?.visible ?? true
+        if (visible && (!this.wasVisible || (token && token !== this.lastEntranceToken))) this.frameCallback?.(time, true)
+        else this.frameCallback?.(time)
+        this.wasVisible = visible
+        this.lastEntranceToken = token
         if (this.disposed || !this.running) return
         const renderer = this.renderer
         const scene = this.scene
         const camera = this.camera
         if (!renderer || !scene || !camera) throw new NyxError('Runtime has been disposed', 'DESTROYED', NyxErrorStage.Rendering)
+        this.applyEntrance()
         renderer.render(scene, camera)
+        this.entrance?.afterRender(token)
         if (this.running && !this.disposed) this.frameId = requestAnimationFrame(frame)
       } catch (error) {
         this.dispose()
@@ -209,6 +271,9 @@ export class ThreeRuntime {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.entrance?.disconnect()
+    this.lastEntranceToken = undefined
+    this.fieldPositions = undefined
     this.running = false
     this.frameCallback = undefined
     const canvas = this.canvas
@@ -264,5 +329,35 @@ export class ThreeRuntime {
     camera.far = frame.far
     camera.lookAt(0, 0, 0)
     camera.updateProjectionMatrix()
+  }
+
+  private applyEntrance(): void {
+    const entrance = this.entrance
+    const material = this.material
+    const camera = this.camera
+    const points = this.points
+    if (!entrance || !material || !camera || !points) return
+    const active = entrance.visible && entrance.progress < 1
+    const type = active ? entrance.config.type : EntranceAnimationType.None
+    points.visible = entrance.visible
+    points.frustumCulled = active ? false : this.normalCulling
+    material.depthWrite = active ? false : this.normalDepthWrite
+    material.uniforms.entranceType.value = ENTRANCE_SHADER_TYPES[type]
+    material.uniforms.entranceProgress.value = entrance.progress
+    material.uniforms.entranceFieldRadius.value = this.fieldRadius
+    material.uniforms.entranceHalfWidth.value = this.fieldHalfWidth
+    material.uniforms.entranceHalfHeight.value = this.fieldHalfHeight
+    const zMin = Math.min(0, this.depth)
+    const halfHeight = (camera.position.z - zMin) * Math.tan(CAMERA_FOV * Math.PI / 360)
+    material.uniforms.entranceRadius.value = Math.max(this.fieldRadius, Math.hypot(halfHeight, halfHeight * camera.aspect)) * 1.15
+    const originZ = zMin - Math.max(4 * this.fieldRadius, camera.position.z)
+    material.uniforms.entranceOriginZ.value = originZ
+    const normalFar = cameraFrame(camera.aspect, this.depth).far
+    const travelsInDepth = type === EntranceAnimationType.Depth || type === EntranceAnimationType.Scatter
+    const far = travelsInDepth ? Math.max(normalFar, camera.position.z - originZ + CAMERA_GAP) : normalFar
+    if (camera.far !== far) {
+      camera.far = far
+      camera.updateProjectionMatrix()
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EntranceAnimationType,
   MediaType,
   NyxErrorStage,
   NyxEvent,
@@ -14,7 +15,8 @@ describe('public string enums', () => {
   it('exposes the documented string values at runtime', () => {
     expect(MediaType).toEqual({ Image: 'image', Video: 'video', Usermedia: 'usermedia' })
     expect(ThemeName).toEqual({ Grayscale: 'grayscale', Discodip: 'discodip', Pastel: 'pastel', Nyx: 'nyx' })
-    expect(NyxEvent).toEqual({ Loading: 'loading', Ready: 'ready', Error: 'error', Destroy: 'destroy' })
+    expect(NyxEvent).toEqual({ Loading: 'loading', Ready: 'ready', EntranceStart: 'entrance-start', EntranceComplete: 'entrance-complete', Error: 'error', Destroy: 'destroy' })
+    expect(EntranceAnimationType).toEqual({ None: 'none', Gather: 'gather', Depth: 'depth', Fade: 'fade', Vortex: 'vortex', ScanLeftToRight: 'scan-left-to-right', ScanRightToLeft: 'scan-right-to-left', ScanTopToBottom: 'scan-top-to-bottom', ScanBottomToTop: 'scan-bottom-to-top', Scatter: 'scatter' })
     expect(NyxErrorStage).toEqual({ Target: 'target', Source: 'source', Sampling: 'sampling', Rendering: 'rendering', Lifecycle: 'lifecycle' })
     expect(LumaKeyMode).toEqual({ None: 'none', Dark: 'dark', Light: 'light' })
   })

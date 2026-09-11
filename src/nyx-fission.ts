@@ -1,6 +1,7 @@
 /* global HTMLCanvasElement, queueMicrotask, AbortController */
 
 import { NyxEventEmitter } from './events'
+import { EntranceController } from './entrance'
 import { NyxError } from './errors'
 import { validateParticleDepth } from './depth'
 import { resolveLumaKeyConfig } from './luma-key'
@@ -50,6 +51,7 @@ export class NyxFission {
 
   private readonly config: NyxFissionConfig
   private readonly lumaKey: ResolvedLumaKeyConfig
+  private readonly entrance: EntranceController
   private readonly events = new NyxEventEmitter<NyxEventMap>()
   private readonly resolveReady: () => void
   private readonly rejectReady: (_error: NyxError) => void
@@ -74,6 +76,9 @@ export class NyxFission {
     this.config = { ...config }
     validateConfig(this.config)
     this.lumaKey = resolveLumaKeyConfig(this.config.lumaKey)
+    this.entrance = new EntranceController(this.config.entrance,
+      (event) => this.events.emit(NyxEvent.EntranceStart, event),
+      (event) => this.events.emit(NyxEvent.EntranceComplete, event))
 
     let resolveReady!: () => void
     let rejectReady!: (_error: NyxError) => void
@@ -120,6 +125,13 @@ export class NyxFission {
     this.events.on(event, listener)
   }
 
+  /** Reveal or replay the configured entrance; concurrent requests join the same run. */
+  playEntrance(): Promise<void> {
+    if (this.state === 'destroyed') return Promise.reject(lifecycleError('NyxFission has been destroyed'))
+    if (this.state === 'failed') return Promise.reject(this.failureError)
+    return this.entrance.play()
+  }
+
   off<K extends keyof NyxEventMap>(event: K, listener: (_value: NyxEventMap[K]) => void): void {
     this.events.off(event, listener)
   }
@@ -127,6 +139,7 @@ export class NyxFission {
   destroy(): void {
     if (this.state === 'destroyed') return
     this.state = 'destroyed'
+    this.entrance.cancel(lifecycleError('NyxFission has been destroyed'))
     this.releaseResources()
     this.rejectReady(lifecycleError('NyxFission has been destroyed'))
     if (!this.destroyEmitted) {
@@ -175,10 +188,11 @@ export class NyxFission {
       this.source = source
       this.sampler = new FrameSampler(source, type === MediaType.Usermedia)
       this.renderFirstFrame(canvas)
-      this.runtime?.start((time) => this.renderFrame(time))
+      this.runtime?.start((time, force) => this.renderFrame(time, force))
       this.state = 'ready'
       this.resolveReady()
       this.events.emit(NyxEvent.Ready, undefined)
+      this.entrance.ready()
     } catch (error) {
       this.fail(asNyxError(error, this.stageFor(error)))
     } finally {
@@ -193,17 +207,18 @@ export class NyxFission {
     this.frameWidth = frame.width
     this.frameHeight = frame.height
     this.field = createParticleField(frame, resolveTheme(this.config.theme ?? ThemeName.Nyx), this.lumaKey)
-    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, this.lumaKey, (error) => this.handleRuntimeError(error))
+    this.runtime = new ThreeRuntime(canvas, this.field, this.config.depth ?? DEFAULT_DEPTH, this.lumaKey, (error) => this.handleRuntimeError(error), this.entrance)
   }
 
-  private renderFrame(time = 0): void {
+  private renderFrame(time = 0, force = false): void {
     try {
       const sampler = this.sampler
       const runtime = this.runtime
       const source = this.source
       if (!sampler || !runtime || !this.field || !source) return
+      if (!this.entrance.visible) return
       if (source.kind === 'image') return
-      if (time - this.lastDynamicSampleTime < DYNAMIC_SAMPLE_INTERVAL_MS) return
+      if (!force && time - this.lastDynamicSampleTime < DYNAMIC_SAMPLE_INTERVAL_MS) return
       this.lastDynamicSampleTime = time
       const frame = sampler.sample()
       if (frame.width !== this.frameWidth || frame.height !== this.frameHeight) {
@@ -248,6 +263,7 @@ export class NyxFission {
     if (this.state === 'destroyed' || this.state === 'failed') return
     this.state = 'failed'
     this.failureError = error
+    this.entrance.cancel(error)
     this.releaseResources()
     this.rejectReady(error)
     if (!this.errorEmitted) {

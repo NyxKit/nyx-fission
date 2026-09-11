@@ -3,8 +3,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NyxError } from '../errors'
+import { EntranceController } from '../entrance'
 import { ThreeRuntime } from '../runtime'
-import { LumaKeyMode, type ResolvedLumaKeyConfig } from '../types'
+import { EntranceAnimationType, LumaKeyMode, type ResolvedLumaKeyConfig } from '../types'
 import type { ParticleField } from '../particles'
 import fragmentShader from '../shaders/particles.frag.glsl?raw'
 import vertexShader from '../shaders/particles.vert.glsl?raw'
@@ -56,6 +57,7 @@ const three = vi.hoisted(() => {
   }
 
   class ShaderMaterial {
+    depthWrite = true
     dispose = vi.fn()
     uniforms: Record<string, { value: unknown }>
 
@@ -65,6 +67,8 @@ const three = vi.hoisted(() => {
   }
 
   class Points {
+    visible = true
+    frustumCulled = true
     constructor(_geometry: BufferGeometry, _material: ShaderMaterial) {}
   }
 
@@ -175,6 +179,88 @@ describe('ThreeRuntime', () => {
     expect(observer.observe).toHaveBeenCalledWith(target)
 
     runtime.dispose()
+  })
+
+  it.each([EntranceAnimationType.Depth, EntranceAnimationType.Scatter].flatMap(type => [-1_000_000, -1, 0, 1, 1_000_000].map(depth => [type, depth] as const)))('animates %s at depth %s with safe clipping, stable buffers, and exact settlement', async (type, depth) => {
+    const entrance = new EntranceController({ type, autoStart: false, duration: 1000 })
+    const runtime = new ThreeRuntime(canvas(), field(), depth, lumaKey(), undefined, entrance)
+    const camera = three.PerspectiveCamera.mock.results[0].value
+    const points = three.Points.mock.results[0].value
+    const material = three.ShaderMaterial.mock.results[0].value
+    const normalFar = camera.far
+    const normalZ = camera.position.z
+    expect(points.visible).toBe(false)
+    const callback = vi.fn()
+    entrance.ready()
+    runtime.start(callback)
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+    frame(0)
+    const completed = entrance.play()
+    frame(10)
+    expect(callback).toHaveBeenLastCalledWith(10, true)
+    expect(points.visible).toBe(true)
+    expect(points.frustumCulled).toBe(false)
+    expect(material.depthWrite).toBe(false)
+    expect(camera.position.z).toBe(normalZ)
+    expect(material.uniforms.entranceOriginZ.value).toBeLessThan(Math.min(0, depth))
+    expect(camera.far).toBeGreaterThan(camera.position.z - material.uniforms.entranceOriginZ.value)
+    expect(Number.isFinite(camera.far)).toBe(true)
+    frame(510)
+    resizeCallback([{ contentRect: { width: 360, height: 800 } } as ResizeObserverEntry], observer as unknown as ResizeObserver)
+    runtime.setField(field(4))
+    frame(610)
+    expect(material.uniforms.entranceProgress.value).toBe(0.6)
+    frame(1010)
+    await completed
+    expect(camera.far).toBe(normalFar)
+    expect(material.uniforms.entranceType.value).toBe(0)
+    expect(points.frustumCulled).toBe(true)
+    expect(material.depthWrite).toBe(true)
+    expect(three.BufferGeometry).toHaveBeenCalledTimes(2)
+    const replay = entrance.play()
+    frame(1020)
+    expect(callback).toHaveBeenLastCalledWith(1020, true)
+    frame(2020)
+    await replay
+    expect(three.BufferGeometry).toHaveBeenCalledTimes(2)
+    runtime.dispose()
+  })
+
+  it('does not report entrance completion when the final draw fails', () => {
+    const end = vi.fn()
+    const onError = vi.fn()
+    const entrance = new EntranceController({ type: EntranceAnimationType.Fade, duration: 0 }, undefined, end)
+    const runtime = new ThreeRuntime(canvas(), field(), 0, lumaKey(), onError, entrance)
+    entrance.ready()
+    const failure = new Error('GPU failure')
+    three.WebGLRenderer.mock.results[0].value.render.mockImplementation(() => { throw failure })
+    runtime.start(vi.fn())
+    ;(requestFrame.mock.calls[0][0] as FrameRequestCallback)(0)
+    expect(onError).toHaveBeenCalledWith(failure)
+    expect(end).not.toHaveBeenCalled()
+    entrance.cancel(failure)
+  })
+
+  it('updates scan bounds when a new media aspect retains the particle count', () => {
+    const landscape = field(2)
+    landscape.positions.set([-1, -0.25, 0, 1, 0.25, 0])
+    const portrait = field(2)
+    portrait.positions.set([-0.25, -1, 0, 0.25, 1, 0])
+    const entrance = new EntranceController({ type: EntranceAnimationType.ScanTopToBottom })
+    const runtime = new ThreeRuntime(canvas(), landscape, 0, lumaKey(), undefined, entrance)
+    entrance.ready()
+    runtime.start(vi.fn())
+    const frame = requestFrame.mock.calls[0][0] as FrameRequestCallback
+    frame(0)
+    runtime.setField(portrait)
+    frame(200)
+    const uniforms = three.ShaderMaterial.mock.results[0].value.uniforms
+    expect(uniforms.entranceHalfWidth.value).toBe(0.25)
+    expect(uniforms.entranceHalfHeight.value).toBe(1)
+    expect(uniforms.entranceProgress.value).toBe(0.2)
+    expect(three.BufferGeometry).toHaveBeenCalledOnce()
+    runtime.dispose()
+    entrance.cancel(new Error('done'))
   })
 
   it.each([

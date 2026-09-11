@@ -1,4 +1,4 @@
-import { LumaKeyMode, type LumaKeyConfig } from '../src/index'
+import { EntranceAnimationType, LumaKeyMode, type EntranceConfig, type LumaKeyConfig } from '../src/index'
 
 export type QuickstartSource = 'image' | 'video' | 'usermedia'
 export type QuickstartLumaKey = LumaKeyConfig
@@ -19,7 +19,7 @@ export function commitDemoDepth(input: string | number, currentDepth: number): n
   return Number.isFinite(nextDepth) ? normalizeDemoDepth(nextDepth) : currentDepth
 }
 
-export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = { mode: LumaKeyMode.None }): string {
+export function buildQuickstart(source: QuickstartSource, sourceUrl: string, depth: number, lumaKey: QuickstartLumaKey = { mode: LumaKeyMode.None }, entrance?: EntranceConfig): string {
   const typeMember = source === 'image' ? 'Image' : source === 'video' ? 'Video' : 'Usermedia'
   const sourceConfig = source === 'usermedia'
     ? 'type: MediaType.Usermedia'
@@ -28,12 +28,14 @@ export function buildQuickstart(source: QuickstartSource, sourceUrl: string, dep
   const coherence = Number.isFinite(lumaKey.coherence) ? Math.min(1, Math.max(0, lumaKey.coherence ?? 0)) : 0
   const mode = Object.values(LumaKeyMode).includes(lumaKey.mode) ? lumaKey.mode : LumaKeyMode.None
   const lumaKeyConfig = `{ mode: LumaKeyMode.${mode === LumaKeyMode.Dark ? 'Dark' : mode === LumaKeyMode.Light ? 'Light' : 'None'}, threshold: ${String(threshold)}, coherence: ${String(coherence)} }`
-  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: ${lumaKeyConfig}`
+  const entranceMember = Object.entries(EntranceAnimationType).find(([, value]) => value === entrance?.type)?.[0] ?? 'None'
+  const entranceConfig = entrance ? `, entrance: { type: EntranceAnimationType.${entranceMember}, autoStart: ${entrance.autoStart !== false}, duration: ${entrance.duration ?? 1000}, delay: ${entrance.delay ?? 0} }` : ''
+  const config = `${sourceConfig}, depth: ${String(normalizeDemoDepth(depth))}, lumaKey: ${lumaKeyConfig}${entranceConfig}`
 
-  return `import { LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
+  return `import { ${entrance ? 'EntranceAnimationType, ' : ''}LumaKeyMode, MediaType, NyxFission } from 'nyx-fission'
 
 const particles = new NyxFission({ ${config} })
 const target = document.querySelector<HTMLCanvasElement>('#particles-canvas')
 if (!target) throw new Error('Expected #particles-canvas to exist')
-particles.mount(target)`
+particles.mount(target)${entrance?.autoStart === false ? '\nawait particles.ready\n\n// Call from your button handler or section-visibility callback:\nawait particles.playEntrance()' : ''}`
 }
