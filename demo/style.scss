@@ -92,13 +92,10 @@ p {
   text-transform: uppercase;
 
   &__mark {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    color: var(--nyx-c-bg);
-    background: var(--demo-accent);
-    border-radius: 50%;
+    display: block;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
   }
 
   &__muted {

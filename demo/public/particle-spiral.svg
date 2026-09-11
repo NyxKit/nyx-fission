@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">NyxFission particle spiral</title>
+  <!-- Particle size and spacing contract through 2.4 turns toward the distant center. -->
+  <g stroke="white" stroke-width="0.2">
+    <circle cx="52.19" cy="14.99" r="3.32" fill="oklch(0.90694 0.05745 306.695)"/>
+    <circle cx="55.52" cy="24.38" r="3.17" fill="oklch(0.90694 0.05745 306.695)"/>
+    <circle cx="55.10" cy="33.70" r="3.02" fill="oklch(0.90694 0.05745 306.695)"/>
+    <circle cx="51.44" cy="41.63" r="2.88" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="45.47" cy="47.22" r="2.75" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="38.30" cy="49.96" r="2.63" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="31.12" cy="49.81" r="2.51" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="24.95" cy="47.14" r="2.40" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="20.53" cy="42.65" r="2.29" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="18.29" cy="37.19" r="2.19" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="18.28" cy="31.66" r="2.09" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="20.21" cy="26.85" r="2.00" fill="oklch(0.71101 0.17933 300.531)"/>
+    <circle cx="23.59" cy="23.37" r="1.92" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="27.75" cy="21.55" r="1.83" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="32.01" cy="21.43" r="1.76" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="35.74" cy="22.83" r="1.68" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="38.48" cy="25.37" r="1.61" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="39.97" cy="28.54" r="1.55" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="40.13" cy="31.81" r="1.48" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="39.12" cy="34.71" r="1.43" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="37.22" cy="36.87" r="1.37" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="34.81" cy="38.07" r="1.31" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="32.30" cy="38.26" r="1.26" fill="oklch(0.60594 0.22962 302.684)"/>
+    <circle cx="30.05" cy="37.53" r="1.22" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="28.35" cy="36.11" r="1.17" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="27.38" cy="34.28" r="1.13" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="27.19" cy="32.35" r="1.08" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="27.70" cy="30.60" r="1.05" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="28.77" cy="29.27" r="1.01" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="30.16" cy="28.49" r="0.97" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="31.64" cy="28.30" r="0.94" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="33.00" cy="28.67" r="0.91" fill="oklch(0.62308 0.18801 259.815)"/>
+    <circle cx="34.04" cy="29.46" r="0.88" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="34.67" cy="30.52" r="0.85" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="34.84" cy="31.66" r="0.82" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="34.58" cy="32.71" r="0.80" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="33.99" cy="33.52" r="0.77" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="33.19" cy="34.03" r="0.75" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="32.32" cy="34.18" r="0.73" fill="oklch(0.40139 0.09064 244.123)"/>
+    <circle cx="31.51" cy="34.00" r="0.71" fill="oklch(0.40139 0.09064 244.123)"/>
+  </g>
+</svg>

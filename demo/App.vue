@@ -470,9 +470,15 @@ onBeforeUnmount(() => {
         href="#top"
         aria-label="NyxFission home"
       >
-        <span class="wordmark__mark">N</span>
+        <img
+          class="wordmark__mark"
+          src="/favicon.svg"
+          alt=""
+          width="32"
+          height="32"
+        />
         <!-- prettier-ignore -->
-        <span>nyx<span class="wordmark__muted">fission</span></span>
+        <span><span class="wordmark__muted">nyx</span>fission</span>
       </a>
       <nav
         class="demo-nav"
