@@ -503,7 +503,7 @@ onBeforeUnmount(() => {
       id="top"
     >
       <div class="hero__copy">
-        <p class="eyebrow">NYX / FISSION 1.1.0</p>
+        <p class="eyebrow">NYX / FISSION 1.1.1</p>
         <h1 class="hero__title">
           Media goes in.
           <br />

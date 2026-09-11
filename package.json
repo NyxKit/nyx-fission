@@ -1,6 +1,6 @@
 {
   "name": "nyx-fission",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "main": "./dist/nyx-fission.js",
   "module": "./dist/nyx-fission.js",

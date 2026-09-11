@@ -34,7 +34,7 @@ export class FrameSampler {
     this.source = source
     this.mirror = mirror
     this.canvas = document.createElement('canvas')
-    const context = this.canvas.getContext('2d')
+    const context = this.canvas.getContext('2d', { willReadFrequently: true })
     if (!context) {
       throw new NyxError(
         'Could not create a 2D sampling context',
