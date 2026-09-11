@@ -219,6 +219,11 @@ const createHeroInstance = () => {
         source: heroVideoUrl,
         depth: 1,
         lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.2, coherence: 0.3 },
+        entrance: {
+          type: EntranceAnimationType.Vortex,
+          autoStart: true,
+          delay: 1000,
+        },
       }),
     onInstanceChange: (nextInstance) => {
       heroInstance.value = nextInstance as NyxFission | null
