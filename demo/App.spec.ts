@@ -68,9 +68,9 @@ vi.mock('../src/index', async (importOriginal) => {
 // Keep the app's bindings and events real while replacing the UI kit's rendering.
 vi.mock('nyx-kit/components', async () => {
   const { defineComponent, h } = await import('vue')
-  const { NyxTabs } = await vi.importActual<typeof import('nyx-kit/components')>('nyx-kit/components')
+  const { NyxAccordion } = await vi.importActual<typeof import('nyx-kit/components')>('nyx-kit/components')
   return {
-    NyxTabs,
+    NyxAccordion,
     NyxButton: defineComponent({
       setup:
         (_props, { slots }) =>
@@ -145,7 +145,7 @@ function instanceFor(canvasId: string): MockInstance {
 
 async function clickButton(label: string) {
   const button = [...host.querySelectorAll('button')].find(
-    (candidate) => candidate.textContent?.trim() === label,
+    (candidate) => candidate.textContent?.trim() === label || candidate.querySelector('.demo-controls__section-title')?.textContent === label,
   )
   if (!button) throw new Error(`Missing button: ${label}`)
   button.click()
@@ -174,6 +174,79 @@ afterEach(() => {
 })
 
 describe('demo application', () => {
+  it('switches between preview and highlighted JSON without replacing the canvas or media', async () => {
+    await mountDemo()
+    const canvas = host.querySelector('#particles-canvas')
+    const current = instanceFor('particles-canvas')
+    const count = mocks.instances.length
+    await clickButton('Code')
+    const code = host.querySelector('.playground__code code')!
+    expect(JSON.parse(code.textContent!)).toEqual(current.config)
+    expect(code.querySelector('.hljs-attr')).not.toBeNull()
+    expect(host.querySelector('.playground__visual')?.getAttribute('aria-hidden')).toBe('true')
+    expect(host.querySelector('.playground__visual')?.hasAttribute('inert')).toBe(true)
+    await clickButton('Preview')
+    expect(host.querySelector('#particles-canvas')).toBe(canvas)
+    expect(mocks.instances).toHaveLength(count)
+    expect(current.destroy).not.toHaveBeenCalled()
+    expect(host.querySelector('.playground__visual')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('keeps JSON synchronized with applied options and excludes unsubmitted URL edits', async () => {
+    await mountDemo()
+    await clickButton('Code')
+    const readConfig = () => JSON.parse(host.querySelector('.playground__code code')!.textContent!)
+    const originalSource = readConfig().source
+    await changeInput('source-url', './fixtures/custom.svg')
+    expect(readConfig().source).toBe(originalSource)
+    await clickButton('Apply')
+    expect(readConfig().source).toBe(new URL('./fixtures/custom.svg', document.baseURI).href)
+    await changeInput('depth-control', '-0.6')
+    await vi.advanceTimersByTimeAsync(250)
+    const select = host.querySelector<HTMLSelectElement>('#theme-select')!
+    select.value = ThemeName.Pastel
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    expect(readConfig()).toEqual(instanceFor('particles-canvas').config)
+    expect(readConfig()).toMatchObject({ depth: -0.6, theme: ThemeName.Pastel })
+    expect(host.querySelector('.quickstart__example code')?.textContent).toContain('theme: ThemeName.Pastel')
+  })
+
+  it('omits source from webcam JSON and retains the stream when returning to preview', async () => {
+    await mountDemo()
+    await clickButton('Enable webcam')
+    const current = instanceFor('particles-canvas')
+    await clickButton('Code')
+    const config = JSON.parse(host.querySelector('.playground__code code')!.textContent!)
+    expect(config.type).toBe('usermedia')
+    expect(config).not.toHaveProperty('source')
+    await clickButton('Preview')
+    expect(current.destroy).not.toHaveBeenCalled()
+  })
+
+  it('copies plain JSON and TypeScript rather than highlighted markup', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    await mountDemo()
+    await clickButton('Code')
+    await clickButton('Copy JSON')
+    expect(JSON.parse(writeText.mock.calls[0][0])).toEqual(instanceFor('particles-canvas').config)
+    await clickButton('Copy example')
+    expect(writeText.mock.calls[1][0]).toBe(host.querySelector('.quickstart__example code')?.textContent)
+    expect(writeText.mock.calls[1][0]).toContain('new NyxFission({\n')
+    expect(writeText.mock.calls[1][0]).not.toContain('<span')
+  })
+
+  it('shows clipboard failure locally while keeping selectable code and renderer status intact', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('Denied')) } })
+    await mountDemo()
+    const status = host.querySelector('#playground-title')?.textContent
+    await clickButton('Copy example')
+    expect(host.querySelector('.code-example__feedback')?.textContent).toContain('Select the code to copy it')
+    expect(host.querySelector('.quickstart__example pre')?.getAttribute('tabindex')).toBe('0')
+    expect(host.querySelector('#playground-title')?.textContent).toBe(status)
+  })
+
   it('mounts independent hero and playground instances without requesting a webcam', async () => {
     await mountDemo()
     expect(mocks.instances).toHaveLength(2)
@@ -199,11 +272,14 @@ describe('demo application', () => {
     expect(instanceFor('particles-canvas')).toBeDefined()
   })
 
-  it('groups basic and luma controls in their respective tabs', async () => {
+  it('opens Source initially and groups all settings in accordion panels', async () => {
     await mountDemo()
     const group = host.querySelector('#depth-control')?.closest('fieldset')
     expect(group?.querySelector('legend')?.textContent).toBe('Appearance')
-    expect(group?.closest('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toContain('Basic')
+    expect(group?.closest('.nyx-accordion__panel')?.getAttribute('aria-hidden')).toBe('true')
+    const source = host.querySelector('#source-url')?.closest('.nyx-accordion__panel')
+    expect(source?.getAttribute('aria-hidden')).toBe('false')
+    expect(source?.querySelector('legend')?.textContent).toBe('Source')
     const luma = host.querySelector('#luma-key-mode')?.closest('fieldset')
     expect(luma?.querySelector('legend')?.textContent).toBe('LumaKey')
     for (const id of [
@@ -218,23 +294,59 @@ describe('demo application', () => {
     }
   })
 
-  it('switches NyxTabs without replacing media or resetting edited settings', async () => {
+  it('opens only one section at a time without replacing media or resetting inputs', async () => {
     await mountDemo()
     const playground = instanceFor('particles-canvas')
-    expect([...host.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(['Basic', 'LumaKey', 'Entrance', 'Interaction'])
+    const labels = [...host.querySelectorAll('.demo-controls__section-title')].map(label => label.textContent)
+    expect(labels).toEqual(['Source', 'Appearance', 'LumaKey', 'Entrance', 'Interaction'])
+    const triggers = () => [...host.querySelectorAll('.nyx-accordion__trigger')]
+    expect(triggers().map(button => button.getAttribute('aria-expanded'))).toEqual(['true', 'false', 'false', 'false', 'false'])
     await clickButton('Entrance')
-    expect(host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Entrance')
+    expect(triggers().map(button => button.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'false', 'true', 'false'])
     await clickButton('LumaKey')
-    await clickButton('Basic')
+    expect(triggers().map(button => button.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'true', 'false', 'false'])
     expect(playground.destroy).not.toHaveBeenCalled()
     expect(mocks.instances).toHaveLength(2)
+    await clickButton('Appearance')
     await changeInput('depth-control', '0.6')
     await vi.advanceTimersByTimeAsync(250)
     const edited = instanceFor('particles-canvas')
-    await clickButton('Entrance')
-    await clickButton('Basic')
+    const input = host.querySelector<HTMLInputElement>('#depth-control')!
+    await changeInput('depth-control', '0.75')
+    await clickButton('Appearance')
+    await clickButton('Appearance')
+    expect(host.querySelector('#depth-control')).toBe(input)
+    expect(input.value).toBe('0.75')
+    expect(edited.config.depth).toBe(0.6)
     expect(edited.destroy).not.toHaveBeenCalled()
-    expect(host.querySelector<HTMLInputElement>('#depth-control')?.value).toBe('0.6')
+    await clickButton('Appearance')
+    expect(triggers().every(button => button.getAttribute('aria-expanded') === 'false')).toBe(true)
+    for (const panel of host.querySelectorAll('.nyx-accordion__panel')) {
+      expect(panel.getAttribute('aria-hidden')).toBe('true')
+      expect(panel.hasAttribute('inert')).toBe(true)
+    }
+    expect(host.querySelector('#source-url')?.closest('[inert]')).not.toBeNull()
+    expect(edited.destroy).not.toHaveBeenCalled()
+  })
+
+  it('keeps video, webcam, and JSON intact while expanding sections', async () => {
+    await mountDemo()
+    for (const source of ['Video', 'Enable webcam']) {
+      const sourceHeader = [...host.querySelectorAll('.nyx-accordion__trigger')].find(button => button.textContent?.trim() === 'Source')!
+      if (sourceHeader.getAttribute('aria-expanded') !== 'true') await clickButton('Source')
+      await clickButton(source)
+      await clickButton('Code')
+      const current = instanceFor('particles-canvas')
+      const canvas = host.querySelector('#particles-canvas')
+      const code = host.querySelector('.playground__code code')?.textContent
+      await clickButton('Entrance')
+      await clickButton('Interaction')
+      await clickButton('Appearance')
+      expect(host.querySelector('#particles-canvas')).toBe(canvas)
+      expect(host.querySelector('.playground__code code')?.textContent).toBe(code)
+      expect(current.destroy).not.toHaveBeenCalled()
+      expect(current.mount).toHaveBeenCalledOnce()
+    }
   })
 
   it('shows loading, readiness, and errors from the playground', async () => {
@@ -264,7 +376,7 @@ describe('demo application', () => {
     )
   })
 
-  it('configures pointer effects, preserves settings across tabs, and updates the example', async () => {
+  it('configures pointer effects, preserves settings across sections, and updates the example', async () => {
     await mountDemo()
     expect(instanceFor('particles-canvas').config.interaction).toEqual({ type: NyxInteraction.None, radius: 100, strength: 1, delay: 0, duration: 300 })
     const hero = instanceFor('hero-canvas')
@@ -281,9 +393,10 @@ describe('demo application', () => {
     await vi.advanceTimersByTimeAsync(250)
     const playground = instanceFor('particles-canvas')
     expect(playground.config.interaction).toEqual({ type: NyxInteraction.Pull, radius: 150, strength: 0.4, delay: 200, duration: 400 })
-    expect(host.querySelector('pre code')?.textContent).toContain('interaction: { type: NyxInteraction.Pull, radius: 150, strength: 0.4, delay: 200, duration: 400 }')
-    await clickButton('Basic')
-    await clickButton('Interaction')
+    expect(host.querySelector('pre code')?.textContent?.replace(/\s+/g, ' ')).toContain('interaction: { type: NyxInteraction.Pull, radius: 150, strength: 0.4, delay: 200, duration: 400, }')
+    await clickButton('Appearance')
+    const interactionHeader = [...host.querySelectorAll('.nyx-accordion__trigger')].find(button => button.textContent?.includes('Interaction'))
+    expect(interactionHeader?.querySelector('.demo-controls__summary')?.textContent).toBe('Pull')
     expect(host.querySelector<HTMLInputElement>('#interaction-radius')?.value).toBe('150')
     expect(playground.destroy).not.toHaveBeenCalled()
     expect(hero.destroy).not.toHaveBeenCalled()
@@ -384,8 +497,10 @@ describe('demo application', () => {
     await nextTick()
     expect(host.querySelector('#playground-title')?.textContent).toContain('Ready, waiting to play')
     expect(host.querySelector('pre code')?.textContent).toContain('await particles.playEntrance()')
-    expect(host.querySelector('pre code')?.textContent).toContain('duration: 1400, delay: 250')
+    expect(host.querySelector('pre code')?.textContent?.replace(/\s+/g, ' ')).toContain('duration: 1400, delay: 250')
+    await clickButton('Code')
     await clickButton('Play entrance')
+    expect(host.querySelector('.playground__visual')?.getAttribute('aria-hidden')).toBe('false')
     await clickButton('Replay entrance')
     expect(playground.playEntrance).toHaveBeenCalledTimes(2)
     expect(playground.destroy).not.toHaveBeenCalled()

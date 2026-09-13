@@ -269,11 +269,18 @@ pnpm dev
 
 Open the printed local URL. The demo uses explicit canvas mounting, and its deterministic same-origin WebM fixture loops automatically from the beginning. The local SVG and video controls work without a third-party request. Use a same-origin video URL to test production behavior. The webcam button is opt-in and only works from `localhost` or HTTPS.
 
-The playground uses Basic, LumaKey, Entrance, and Interaction tabs. Switching tabs preserves
-configuration and playback. Entrance controls select a preset, automatic or manual start, duration, and
+The playground groups Source, Appearance, LumaKey, Entrance, and Interaction in
+an accordion. Source starts open; opening another section closes the previous
+one. Sections can also all be closed. Navigation preserves configuration and playback.
+Entrance controls select a preset, automatic or manual start, duration, and
 delay. Play/Replay reuses the current media instance. Configuration edits recreate
 the playground and update the copyable example; the decorative hero stays independent.
 Interaction controls select the pointer effect, radius, strength, delay, and duration.
+
+Switch the playground from Preview to Code to inspect and copy syntax-highlighted
+JSON for the applied configuration. The Shortest path example shows the same
+settings as formatted, highlighted TypeScript, including the selected theme.
+Switching views preserves playback; URL edits appear after applying them.
 
 To build the demo separately:
 
@@ -282,6 +289,13 @@ pnpm build:demo
 ```
 
 The default `pnpm build` remains the library build. The demo supports keyboard navigation, visible focus, live status text, reduced decorative motion, and a mobile layout. There is no browser automation suite in this MVP; manually verify the image, video, webcam permission, four themes, destroy/recreate behavior, nested URL paths, and the copy button with `pnpm dev`.
+
+## Version tags
+
+Pushes to `main` automatically create a `v<version>` tag when the root
+`package.json` version changes. Unchanged versions, including demo-only updates,
+skip successfully. Existing tags are never moved. See
+[automatic version tags](docs/version-tagging.md) for behavior and local checks.
 
 ## MVP non-goals
 

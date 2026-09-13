@@ -1,0 +1,38 @@
+name: Tag package version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    # Each push must be processed, even when another merge follows immediately.
+    # Do not use a shared concurrency group that drops pending runs.
+    steps:
+      - name: Checkout the pushed commit and its history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+
+      - name: Verify tagging behavior
+        run: node --test .github/scripts/tag-version.test.mjs
+
+      - name: Tag if package version changed
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node .github/scripts/tag-version.mjs
