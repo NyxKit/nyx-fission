@@ -1,85 +1,195 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import ts from 'typescript'
 import { buildQuickstart, commitDemoDepth } from './quickstart'
-import { EntranceAnimationType, LumaKeyMode, NyxInteraction, type LumaKeyConfig } from '../src/index'
+import {
+  EntranceAnimationType,
+  LumaKeyMode,
+  MediaType,
+  NyxInteraction,
+  ThemeName,
+  type NyxFissionConfig,
+} from '../src/types'
+
+// Compile and execute the displayed example with a fake renderer to verify that
+// formatting still produces working TypeScript and the intended configuration.
+async function runExample(code: string) {
+  const result = ts.transpileModule(code, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    reportDiagnostics: true,
+  })
+  expect(result.diagnostics).toEqual([])
+  let config: NyxFissionConfig | undefined
+  const target = {}
+  const mount = vi.fn()
+  const playEntrance = vi.fn()
+  const library = {
+    EntranceAnimationType,
+    LumaKeyMode,
+    MediaType,
+    NyxInteraction,
+    ThemeName,
+    NyxFission: class {
+      ready = Promise.resolve()
+      mount = mount
+      playEntrance = playEntrance
+      constructor(value: NyxFissionConfig) {
+        config = value
+      }
+    },
+  }
+  const run = new Function(
+    'require',
+    'exports',
+    'document',
+    `return (async () => {\n${result.outputText}\n})()`,
+  )
+  await run(() => library, {}, { querySelector: () => target })
+  expect(mount).toHaveBeenCalledWith(target)
+  return { config, playEntrance }
+}
 
 describe('buildQuickstart', () => {
-  it.each(Object.entries(NyxInteraction))('exports the %s interaction settings', (member, type) => {
-    const example = buildQuickstart('image', '/image.png', 0.35, undefined, undefined, { type, radius: 150, strength: 1, delay: 200, duration: 300 })
-    expect(example).toContain('import { NyxInteraction,')
-    expect(example).toContain(`interaction: { type: NyxInteraction.${member}, radius: 150, strength: 1, delay: 200, duration: 300 }`)
-  })
-  it.each(Object.entries(EntranceAnimationType))('exports a working manual example for %s', (member, type) => {
-    const example = buildQuickstart('image', '/image.png', 0.35, undefined, { type, autoStart: false, duration: 1400, delay: 250 })
-    expect(example).toContain(`entrance: { type: EntranceAnimationType.${member}, autoStart: false, duration: 1400, delay: 250 }`)
-    expect(example).toContain('await particles.ready')
-    expect(example).toContain('await particles.playEntrance()')
-  })
-  it.each([
-    ['image', '/fixtures/nyx-orbit.svg', '0.35', 'type: MediaType.Image, source: "/fixtures/nyx-orbit.svg", depth: 0.35, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }'],
-    ['video', 'https://example.test/field.webm', '-0.5', 'type: MediaType.Video, source: "https://example.test/field.webm", depth: -0.5, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }'],
-    ['usermedia', 'ignored', '0', 'type: MediaType.Usermedia, depth: 0, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }'],
-  ] as const)('includes the active depth literal for %s examples', (source, sourceUrl, depth, config) => {
-    expect(buildQuickstart(source, sourceUrl, Number(depth))).toContain(config)
-  })
+  it.each(Object.entries(NyxInteraction))(
+    'exports the %s interaction settings',
+    async (_member, type) => {
+      const interaction = {
+        type,
+        radius: 150,
+        strength: 0.4,
+        delay: 200,
+        duration: 300,
+      }
+      const { config } = await runExample(
+        buildQuickstart(
+          'image',
+          '/image.png',
+          0.35,
+          undefined,
+          undefined,
+          interaction,
+        ),
+      )
+      expect(config?.interaction).toEqual(interaction)
+    },
+  )
 
-  it('builds a webcam example without a source URL', () => {
-    expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'import { LumaKeyMode, MediaType, NyxFission } from \'nyx-fission\'',
-    )
-    expect(buildQuickstart('usermedia', 'ignored', 0.35)).toContain(
-      'new NyxFission({ type: MediaType.Usermedia, depth: 0.35, lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 } })',
-    )
-    expect(buildQuickstart('usermedia', 'ignored', 0.35)).not.toContain('source:')
-  })
-
-  it('serializes media URLs as safe TypeScript strings', () => {
-    const url = 'https://example.test/media/quote\n".webm'
-    const example = buildQuickstart('video', url, 0.35)
-
-    expect(example).toContain(`type: MediaType.Video, source: ${JSON.stringify(url)}`)
-    expect(example).toContain("document.querySelector<HTMLCanvasElement>('#particles-canvas')")
-  })
-
-  it('includes an explicit image type for the SVG default source', () => {
-    const example = buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35)
-
-    expect(example).toContain('type: MediaType.Image, source: "/fixtures/nyx-orbit.svg"')
-  })
+  it.each(Object.entries(EntranceAnimationType))(
+    'exports a working manual example for %s',
+    async (_member, type) => {
+      const entrance = { type, autoStart: false, duration: 1400, delay: 250 }
+      const { config, playEntrance } = await runExample(
+        buildQuickstart('image', '/image.png', 0.35, undefined, entrance),
+      )
+      expect(config?.entrance).toEqual(entrance)
+      expect(playEntrance).toHaveBeenCalledOnce()
+    },
+  )
 
   it.each([
-    [2, 'depth: 1'],
-    [-2, 'depth: -1'],
-    [Number.NaN, 'depth: 0.35'],
-  ])('normalizes generated depth %s into the demo range', (depth, expectedDepth) => {
-    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', depth)).toContain(expectedDepth)
+    ['image', '/fixtures/nyx-orbit.svg', 0.35],
+    ['video', 'https://example.test/field.webm', -0.5],
+    ['usermedia', 'ignored', 0],
+  ] as const)(
+    'exports the source and depth for %s',
+    async (source, sourceUrl, depth) => {
+      const { config } = await runExample(
+        buildQuickstart(source, sourceUrl, depth),
+      )
+      expect(config).toEqual({
+        type: source,
+        ...(source === 'usermedia' ? {} : { source: sourceUrl }),
+        theme: ThemeName.Nyx,
+        depth,
+        lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 },
+      })
+    },
+  )
+
+  it.each(Object.values(ThemeName))(
+    'includes the selected %s theme',
+    async (theme) => {
+      const { config } = await runExample(
+        buildQuickstart(
+          'image',
+          '/image.png',
+          0.35,
+          undefined,
+          undefined,
+          undefined,
+          theme,
+        ),
+      )
+      expect(config?.theme).toBe(theme)
+    },
+  )
+
+  it('serializes quotes, newlines, and markup in media URLs as literal data', async () => {
+    const url =
+      'https://example.test/media/quote\n"</code><script>alert(1)</script>.webm'
+    const { config } = await runExample(buildQuickstart('video', url, 0.35))
+    expect(config?.source).toBe(url)
   })
+
+  it.each([
+    [2, 1],
+    [-2, -1],
+    [Number.NaN, 0.35],
+  ])(
+    'normalizes depth %s into the demo range',
+    async (depth, expectedDepth) => {
+      const { config } = await runExample(
+        buildQuickstart('image', '/image.png', depth),
+      )
+      expect(config?.depth).toBe(expectedDepth)
+    },
+  )
 
   it('keeps transient empty and negative input editable until commit', () => {
     expect(commitDemoDepth('', 0.35)).toBe(0.35)
     expect(commitDemoDepth('-', 0.35)).toBe(0.35)
     expect(commitDemoDepth('-0.5', 0.35)).toBe(-0.5)
-  })
-
-  it('accepts numeric values emitted by number inputs', () => {
     expect(commitDemoDepth(0.5, 0.35)).toBe(0.5)
   })
 
-  it('includes selected nested luma-key settings in the generated example', () => {
-    const lumaKey: LumaKeyConfig = { mode: LumaKeyMode.Dark, threshold: 0.25, coherence: 0.75 }
-    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35, lumaKey)).toContain(
-      'lumaKey: { mode: LumaKeyMode.Dark, threshold: 0.25, coherence: 0.75 }',
-    )
+  it('exports nested luma-key settings and normalizes out-of-range values', async () => {
+    const selected = {
+      mode: LumaKeyMode.Dark,
+      threshold: 0.25,
+      coherence: 0.75,
+    }
+    expect(
+      (await runExample(buildQuickstart('image', '/image.png', 0.35, selected)))
+        .config?.lumaKey,
+    ).toEqual(selected)
+    expect(
+      (
+        await runExample(
+          buildQuickstart('image', '/image.png', 0.35, {
+            mode: LumaKeyMode.Light,
+            threshold: 2,
+            coherence: -1,
+          }),
+        )
+      ).config?.lumaKey,
+    ).toEqual({ mode: LumaKeyMode.Light, threshold: 1, coherence: 0 })
   })
 
-  it('normalizes nested luma-key values in the generated example', () => {
-    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35, { mode: LumaKeyMode.Light, threshold: 2, coherence: -1 })).toContain(
-      'lumaKey: { mode: LumaKeyMode.Light, threshold: 1, coherence: 0 }',
+  it('keeps imports, the constructor and nested options on readable lines', () => {
+    const example = buildQuickstart(
+      'image',
+      '/image.png',
+      0.35,
+      undefined,
+      { type: EntranceAnimationType.ScanBottomToTop },
+      { type: NyxInteraction.Attract },
     )
-  })
-
-  it('generates the default nested luma-key config when omitted', () => {
-    expect(buildQuickstart('image', '/fixtures/nyx-orbit.svg', 0.35)).toContain(
-      'lumaKey: { mode: LumaKeyMode.None, threshold: 0.1, coherence: 0 }',
-    )
+    expect(example).toContain('new NyxFission({\n')
+    expect(example).toContain('  entrance: {\n')
+    expect(
+      Math.max(...example.split('\n').map((line) => line.length)),
+    ).toBeLessThanOrEqual(80)
   })
 })

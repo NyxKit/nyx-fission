@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/* global URL, document, HTMLCanvasElement, window, navigator, HTMLInputElement */
+/* global URL, document, HTMLCanvasElement, window, HTMLInputElement */
 
 import {
   computed,
@@ -10,8 +10,19 @@ import {
   shallowRef,
   watch,
 } from 'vue'
-import { NyxButton, NyxInput, NyxSelect, NyxTabs } from 'nyx-kit/components'
-import { NyxInputType, NyxSize, NyxTheme, NyxVariant } from 'nyx-kit/types'
+import {
+  NyxButton,
+  NyxInput,
+  NyxSelect,
+  NyxAccordion,
+} from 'nyx-kit/components'
+import {
+  NyxInputType,
+  NyxSize,
+  NyxTheme,
+  NyxVariant,
+  type NyxAccordionModel,
+} from 'nyx-kit/types'
 import {
   EntranceAnimationType,
   LumaKeyMode,
@@ -20,9 +31,11 @@ import {
   NyxFission,
   NyxInteraction,
   type NyxErrorEvent,
+  type NyxFissionConfig,
   ThemeName,
 } from '../src/index'
 import { createHeroPreviewLifecycle } from './hero-lifecycle'
+import CodeBlock from './CodeBlock.vue'
 import {
   buildQuickstart,
   commitDemoDepth,
@@ -32,12 +45,6 @@ import {
   commitUnitInterval,
   useDebouncedNumberInput,
 } from './use-debounced-number-input'
-
-enum SourceChoice {
-  Image = 'image',
-  Video = 'video',
-  Usermedia = 'usermedia',
-}
 
 type Status =
   | 'Waiting for a source'
@@ -54,15 +61,21 @@ const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
 const faviconUrl = new URL('./favicon.svg', document.baseURI).href
 const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
 const heroVideoUrl = new URL('./fixtures/hero.mp4', document.baseURI).href
-const sourceChoice = ref<SourceChoice>(SourceChoice.Image)
+const sourceChoice = ref<MediaType>(MediaType.Image)
 const sourceUrl = ref(imageUrl)
 const theme = ref<ThemeName>(ThemeName.Nyx)
 const depth = ref(0.35)
 const lumaKey = ref<LumaKeyMode>(LumaKeyMode.None)
 const lumaKeyThreshold = ref(0.1)
 const lumaKeyCoherence = ref(0)
-const configTab = ref('Basic')
-const configTabs = ['Basic', 'LumaKey', 'Entrance', 'Interaction']
+const openSection = ref<NyxAccordionModel>('source')
+const configSections = [
+  { id: 'source', label: 'Source' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'luma-key', label: 'LumaKey' },
+  { id: 'entrance', label: 'Entrance' },
+  { id: 'interaction', label: 'Interaction' },
+]
 const interactionType = ref(NyxInteraction.None)
 const interactionRadius = ref(100)
 const interactionStrength = ref(1)
@@ -152,30 +165,32 @@ const {
 let disposeHero: (() => void) | null = null
 const canvas = ref<HTMLCanvasElement | null>(null)
 const instance = shallowRef<NyxFission | null>(null)
+const appliedConfig = shallowRef<NyxFissionConfig | null>(null)
+const outputView = ref<'preview' | 'code'>('preview')
 const heroCanvas = ref<HTMLCanvasElement | null>(null)
 const heroInstance = ref<NyxFission | null>(null)
 const status = ref<Status>('Waiting for a source')
 const statusTheme = ref(NyxTheme.Info)
 const statusDetail = ref('Choose a source, then mount the field.')
-const copyLabel = ref('Copy example')
-const quickstartCode = computed(() =>
-  buildQuickstart(
-    sourceChoice.value,
-    sourceUrl.value,
-    depth.value,
-    {
-      mode: lumaKey.value,
-      threshold: lumaKeyThreshold.value,
-      coherence: lumaKeyCoherence.value,
-    },
-    entranceConfig.value,
-    interactionConfig.value,
-  ),
+const playgroundCode = computed(() =>
+  JSON.stringify(appliedConfig.value ?? {}, null, 2),
 )
+const quickstartCode = computed(() => {
+  const config = appliedConfig.value
+  return buildQuickstart(
+    config?.type ?? MediaType.Image,
+    config?.source ?? imageUrl,
+    config?.depth ?? 0.35,
+    config?.lumaKey,
+    config?.entrance,
+    config?.interaction,
+    config?.theme,
+  )
+})
 
 const sourceOptions = [
-  { value: SourceChoice.Image, label: 'Local image' },
-  { value: SourceChoice.Video, label: 'Video URL' },
+  { value: MediaType.Image, label: 'Local image' },
+  { value: MediaType.Video, label: 'Video URL' },
 ]
 const themeOptions = [
   { value: ThemeName.Nyx, label: 'Nyx semantic' },
@@ -218,6 +233,21 @@ const entranceOptions = [
     label: 'Scatter · assemble a dust cloud',
   },
 ]
+const sectionSummaries = computed<Record<string, string>>(() => ({
+  'luma-key':
+    lumaKey.value === LumaKeyMode.Dark
+      ? 'Dark'
+      : lumaKey.value === LumaKeyMode.Light
+        ? 'Light'
+        : 'None',
+  entrance:
+    entranceOptions.find((option) => option.value === entranceType.value)
+      ?.label ?? 'None',
+  interaction:
+    interactionOptions
+      .find((option) => option.value === interactionType.value)
+      ?.label.split(' · ')[0] ?? 'None',
+}))
 const entranceTriggerOptions = [
   { value: 'automatic', label: 'Automatically on load' },
   { value: 'manual', label: 'Wait for Play' },
@@ -283,10 +313,7 @@ const restartPlayground = (): void => {
   playgroundReady.value = false
   entranceBusy.value = false
   entrancePlayed.value = false
-  if (
-    sourceChoice.value === SourceChoice.Usermedia &&
-    !window.isSecureContext
-  ) {
+  if (sourceChoice.value === MediaType.Usermedia && !window.isSecureContext) {
     setStatus(
       'Webcam unavailable',
       'Webcam access requires HTTPS or localhost.',
@@ -300,20 +327,21 @@ const restartPlayground = (): void => {
     const explicitTarget = getParticleCanvas()
     const config = {
       type: sourceChoice.value,
+      ...(sourceChoice.value === MediaType.Usermedia
+        ? {}
+        : { source: new URL(sourceUrl.value, document.baseURI).href }),
       theme: theme.value,
       depth: normalizeDemoDepth(depth.value),
-      entrance: entranceConfig.value,
-      interaction: interactionConfig.value,
       lumaKey: {
         mode: lumaKey.value,
         threshold: lumaKeyThreshold.value,
         coherence: lumaKeyCoherence.value,
       },
-      ...(sourceChoice.value === SourceChoice.Usermedia
-        ? {}
-        : { source: new URL(sourceUrl.value, document.baseURI).href }),
+      entrance: entranceConfig.value,
+      interaction: interactionConfig.value,
     } as const
     const nextInstance = new NyxFission(config)
+    appliedConfig.value = config
     instance.value = nextInstance
     nextInstance.on(NyxEvent.Loading, () =>
       setStatus(
@@ -402,6 +430,9 @@ const playEntrance = async () => {
   const current = instance.value
   if (!current || !playgroundReady.value || entranceBusy.value) return
   entranceBusy.value = true
+  outputView.value = 'preview'
+  await nextTick()
+  if (instance.value !== current) return
   setStatus('Entrance scheduled', 'Preparing the entrance.', NyxTheme.Info)
   try {
     canvas.value?.scrollIntoView?.({ block: 'center', behavior: 'instant' })
@@ -419,35 +450,18 @@ const playEntrance = async () => {
   }
 }
 
-const chooseSource = async (choice: SourceChoice) => {
+const chooseSource = async (choice: MediaType) => {
   sourceChoice.value = choice
-  if (choice === SourceChoice.Image) sourceUrl.value = imageUrl
-  if (choice === SourceChoice.Video) sourceUrl.value = videoUrl
+  if (choice === MediaType.Image) sourceUrl.value = imageUrl
+  if (choice === MediaType.Video) sourceUrl.value = videoUrl
   await nextTick()
   restartPlayground()
 }
 
 const startWebcam = async () => {
-  sourceChoice.value = SourceChoice.Usermedia
+  sourceChoice.value = MediaType.Usermedia
   await nextTick()
   restartPlayground()
-}
-
-const copyExample = async () => {
-  try {
-    if (!navigator.clipboard)
-      throw new Error('Clipboard access is unavailable in this browser.')
-    await navigator.clipboard.writeText(quickstartCode.value)
-    copyLabel.value = 'Copied'
-  } catch (error) {
-    copyLabel.value = 'Copy failed'
-    const message =
-      error instanceof Error ? error.message : 'Clipboard access was denied.'
-    setStatus('Needs attention', message, NyxTheme.Warning)
-  }
-  window.setTimeout(() => {
-    copyLabel.value = 'Copy example'
-  }, 1600)
 }
 
 const labelNyxControls = () => {
@@ -574,7 +588,7 @@ onBeforeUnmount(() => {
           class="hero__link"
           href="#playground"
         >
-          Try the live field
+          <span class="hero__link-label">Try the live field</span>
           <span aria-hidden="true">↓</span>
         </a>
       </div>
@@ -623,61 +637,127 @@ onBeforeUnmount(() => {
       </div>
       <div class="playground__layout">
         <div class="playground__preview">
-          <div class="particle-stage__meta"><span>640 × 480 target</span></div>
-          <div class="particle-stage">
-            <canvas
-              class="particle-canvas"
-              id="particles-canvas"
-              ref="canvas"
-              aria-label="Live NyxFission particle output"
-            ></canvas>
-            <div class="particle-stage__corner">
-              NYX
-              <br />
-              FISSION
-            </div>
+          <div
+            class="playground__toolbar"
+            role="group"
+            aria-label="Playground view"
+          >
+            <NyxButton
+              :variant="
+                outputView === 'preview' ? NyxVariant.Filled : NyxVariant.Ghost
+              "
+              :theme="NyxTheme.Primary"
+              :size="NyxSize.Small"
+              :aria-pressed="outputView === 'preview'"
+              aria-controls="playground-output"
+              @click="outputView = 'preview'"
+            >
+              Preview
+            </NyxButton>
+            <NyxButton
+              :variant="
+                outputView === 'code' ? NyxVariant.Filled : NyxVariant.Ghost
+              "
+              :theme="NyxTheme.Primary"
+              :size="NyxSize.Small"
+              :aria-pressed="outputView === 'code'"
+              aria-controls="playground-output"
+              @click="outputView = 'code'"
+            >
+              Code
+            </NyxButton>
           </div>
-          <p class="particle-stage__caption">
-            A local SVG fixture is loaded first, so this surface works without a
-            network request.
-          </p>
+          <div
+            class="playground__output"
+            id="playground-output"
+          >
+            <div
+              class="playground__visual"
+              :class="{ 'playground__visual--hidden': outputView === 'code' }"
+              :aria-hidden="outputView === 'code'"
+              :inert="outputView === 'code'"
+            >
+              <div class="particle-stage__meta">
+                <span>640 × 480 target</span>
+              </div>
+              <div class="particle-stage">
+                <canvas
+                  class="particle-canvas"
+                  id="particles-canvas"
+                  ref="canvas"
+                  aria-label="Live NyxFission particle output"
+                ></canvas>
+                <div class="particle-stage__corner">
+                  NYX
+                  <br />
+                  FISSION
+                </div>
+              </div>
+              <p class="particle-stage__caption">
+                A local SVG fixture is loaded first, so this surface works
+                without a network request.
+              </p>
+            </div>
+            <CodeBlock
+              v-if="outputView === 'code'"
+              class="playground__code"
+              :code="playgroundCode"
+              language="json"
+              filename="nyx-fission.config.json"
+              copy-label="Copy JSON"
+            />
+          </div>
         </div>
         <aside
           class="demo-controls"
           aria-label="Demo controls"
         >
-          <NyxTabs
-            v-model="configTab"
-            :tabs="configTabs"
+          <NyxAccordion
+            v-model="openSection"
+            :items="configSections"
+            :multiple="false"
+            :heading-level="3"
             :theme="NyxTheme.Primary"
             :size="NyxSize.Small"
-            class="demo-controls__tabs"
           >
-            <template #tab-Basic>
+            <template #header="{ item, open }">
+              <span class="demo-controls__section-heading">
+                <span class="demo-controls__section-title">
+                  {{ item.label }}
+                </span>
+                <span
+                  v-if="!open && sectionSummaries[item.id]"
+                  class="demo-controls__summary"
+                >
+                  {{ sectionSummaries[item.id] }}
+                </span>
+              </span>
+            </template>
+            <template #item-source>
               <fieldset class="demo-controls__group">
                 <legend class="demo-controls__legend">Source</legend>
                 <div class="demo-controls__actions">
                   <NyxButton
                     :variant="
-                      sourceChoice === SourceChoice.Image
+                      sourceChoice === MediaType.Image
                         ? NyxVariant.Filled
                         : NyxVariant.Outline
                     "
                     :theme="NyxTheme.Primary"
                     :size="NyxSize.Small"
-                    @click="chooseSource(SourceChoice.Image)"
+                    @click="chooseSource(MediaType.Image)"
                   >
                     Image
                   </NyxButton>
                   <NyxButton
                     :variant="
-                      sourceChoice === SourceChoice.Video
+                      sourceChoice === MediaType.Video
                         ? NyxVariant.Filled
                         : NyxVariant.Outline
                     "
                     :theme="NyxTheme.Primary"
                     :size="NyxSize.Small"
-                    @click="chooseSource(SourceChoice.Video)"
+                    @click="chooseSource(MediaType.Video)"
                   >
                     Video
                   </NyxButton>
@@ -720,6 +800,8 @@ onBeforeUnmount(() => {
                   .
                 </span>
               </fieldset>
+            </template>
+            <template #item-appearance>
               <fieldset class="demo-controls__group">
                 <legend class="demo-controls__legend">Appearance</legend>
                 <label
@@ -757,7 +839,7 @@ onBeforeUnmount(() => {
                 </span>
               </fieldset>
             </template>
-            <template #tab-LumaKey>
+            <template #item-luma-key>
               <fieldset class="demo-controls__group">
                 <legend class="demo-controls__legend">LumaKey</legend>
                 <label
@@ -813,7 +895,7 @@ onBeforeUnmount(() => {
                 </span>
               </fieldset>
             </template>
-            <template #tab-Entrance>
+            <template #item-entrance>
               <fieldset
                 class="demo-controls__group demo-controls__group--entrance"
               >
@@ -913,7 +995,7 @@ onBeforeUnmount(() => {
                 </span>
               </fieldset>
             </template>
-            <template #tab-Interaction>
+            <template #item-interaction>
               <fieldset class="demo-controls__group">
                 <legend class="demo-controls__legend">Interaction</legend>
                 <label
@@ -1023,7 +1105,7 @@ onBeforeUnmount(() => {
                 </span>
               </fieldset>
             </template>
-          </NyxTabs>
+          </NyxAccordion>
         </aside>
       </div>
     </section>
@@ -1044,19 +1126,13 @@ onBeforeUnmount(() => {
           Give it a source, then mount the canvas when you are ready.
         </p>
       </div>
-      <div class="code-example quickstart__example">
-        <div class="code-example__bar">
-          <span>quickstart.ts</span>
-          <NyxButton
-            :variant="NyxVariant.Ghost"
-            :size="NyxSize.Small"
-            @click="copyExample"
-          >
-            {{ copyLabel }}
-          </NyxButton>
-        </div>
-        <pre class="code-example__code"><code>{{ quickstartCode }}</code></pre>
-      </div>
+      <CodeBlock
+        class="quickstart__example"
+        :code="quickstartCode"
+        language="typescript"
+        filename="quickstart.ts"
+        copy-label="Copy example"
+      />
     </section>
     <section
       class="reference demo-section demo-section--surface"

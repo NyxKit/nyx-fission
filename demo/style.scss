@@ -130,8 +130,13 @@ p {
   min-height: max(610px, calc(100dvh - 76px));
   display: block;
 
-  &__link:hover {
+  &__link:hover,
+  &__link:focus-visible {
     color: var(--demo-accent);
+
+    .hero__link-label {
+      border-color: var(--demo-ink);
+    }
   }
 
   &__copy {
@@ -160,14 +165,23 @@ p {
   }
 
   &__link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
     margin-top: 32px;
     color: var(--demo-ink);
     font: 700 13px var(--nyx-font-family-mono);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    text-decoration: none;
+    transition: color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  &__link-label {
+    display: inline-block;
     border-bottom: 1px solid var(--demo-accent);
     padding-bottom: 5px;
+    transition: border-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   &__preview {
@@ -301,6 +315,30 @@ p {
     align-self: start;
   }
 
+  &__toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  &__output {
+    display: grid;
+    min-width: 0;
+  }
+
+  &__visual,
+  &__code {
+    grid-area: 1 / 1;
+    min-width: 0;
+    align-self: start;
+  }
+
+  &__visual--hidden {
+    // Keep the canvas dimensions stable while inspecting the configuration.
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   &__updating {
     position: relative;
     z-index: 1;
@@ -408,30 +446,103 @@ p {
 
   &__bar {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    color: var(--demo-faint);
-    font: 10px var(--nyx-font-family-mono);
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--demo-muted);
+    font: 11px var(--nyx-font-family-mono);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     padding: 12px 16px;
     border-bottom: 1px solid var(--demo-line);
   }
 
+  &__file {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    overflow-wrap: anywhere;
+  }
+
+  &__language {
+    color: var(--demo-accent);
+  }
+
+  &__feedback {
+    padding: 10px 16px 0;
+    color: var(--demo-muted);
+    font-size: 12px;
+  }
+
   &__code {
-    overflow-x: auto;
-    padding: 24px;
+    overflow: auto;
+    max-height: min(65vh, 36rem);
+    padding: 20px;
     margin: 0;
     color: var(--demo-ink);
     font: 13px/1.8 var(--nyx-font-family-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 2;
+
+    code {
+      display: block;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font: inherit;
+    }
+  }
+
+  .hljs-keyword,
+  .hljs-literal {
+    color: oklch(0.8 0.12 305);
+  }
+
+  .hljs-string {
+    color: oklch(0.85 0.1 155);
+  }
+
+  .hljs-number {
+    color: oklch(0.85 0.1 75);
+  }
+
+  .hljs-attr,
+  .hljs-property,
+  .hljs-title,
+  .hljs-built_in,
+  .hljs-type {
+    color: oklch(0.83 0.08 225);
+  }
+
+  .hljs-comment {
+    color: oklch(0.72 0.02 290);
+  }
+
+  @media (max-width: 480px) {
+    &__code {
+      padding: 16px;
+      font-size: 12px;
+    }
   }
 }
 
 .demo-controls {
-  border-top: 1px solid var(--demo-line);
   min-width: 0;
 
-  &__tabs > nav {
-    overflow-x: auto;
+  &__section-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+  }
+
+  &__summary {
+    color: var(--demo-muted);
+    font-size: 11px;
+    font-weight: 400;
   }
 
   &__group--entrance {
@@ -455,8 +566,7 @@ p {
 
   &__group {
     border: 0;
-    border-bottom: 1px solid var(--demo-line);
-    padding: 22px 0;
+    padding: 0;
     margin: 0;
   }
 
@@ -509,7 +619,7 @@ p {
 
 .quickstart {
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 80px;
   align-items: center;
   border-top: 1px solid var(--demo-line);
