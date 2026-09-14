@@ -58,3 +58,11 @@ status transitions, source changes, and cleanup through DOM events. It does not
 provide browser visual verification.
 
 `useDebouncedNumberInput` owns edit timing and cancels pending work when its Vue scope is disposed. Each control supplies its parsing policy: depth retains its previous value for blank or incomplete edits; luma values clamp to 0–1 and treat blank input as zero. `restartPlayground()` starts setup synchronously; the particle instance’s events and `ready` promise report asynchronous completion.
+
+## Logo and favicon
+
+`public/logo.svg` uses the original V1 study 06, “Before the particle,” with its
+dark-background palette. `public/favicon.svg` preserves the same rounded-pixel
+geometry and switches between the study's light and dark palettes using
+`prefers-color-scheme`. The header uses the logo so its colors suit the demo's
+dark background regardless of the browser theme.

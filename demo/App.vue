@@ -58,7 +58,7 @@ type Status =
   | 'Webcam unavailable'
 
 const imageUrl = new URL('./fixtures/nyx-orbit.svg', document.baseURI).href
-const faviconUrl = new URL('./favicon.svg', document.baseURI).href
+const logoUrl = new URL('./logo.svg', document.baseURI).href
 const videoUrl = new URL('./fixtures/nyx-orbit.mp4', document.baseURI).href
 const heroVideoUrl = new URL('./fixtures/hero.mp4', document.baseURI).href
 const sourceChoice = ref<MediaType>(MediaType.Image)
@@ -537,7 +537,7 @@ onBeforeUnmount(() => {
       >
         <img
           class="wordmark__mark"
-          :src="faviconUrl"
+          :src="logoUrl"
           alt=""
           width="32"
           height="32"
